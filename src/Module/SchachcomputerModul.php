@@ -14,6 +14,7 @@ namespace Schachbulle\ContaoSchachcomputerBundle\Module;
 use Contao\BackendTemplate;
 use Contao\FrontendUser;
 use Contao\Module;
+use Contao\StringUtil;
 use Contao\System;
 
 /**
@@ -29,6 +30,10 @@ abstract class SchachcomputerModul extends Module
 	/**
 	 * Gibt im Backend nur einen Platzhalter aus, im Frontend das Modul.
 	 *
+	 * Der Link zum Bearbeiten des Moduls kommt über den Router (Route
+	 * contao_backend) wie in Contaos eigenen Modulen; so stimmt er auch,
+	 * wenn das Backend nicht unter /contao liegt (contao.backend.route_prefix).
+	 *
 	 * @return string Das HTML des Moduls
 	 */
 	public function generate()
@@ -41,7 +46,7 @@ abstract class SchachcomputerModul extends Module
 			$template->title = $this->headline;
 			$template->id = $this->id;
 			$template->link = $this->name;
-			$template->href = 'contao?do=themes&amp;table=tl_module&amp;act=edit&amp;id='.$this->id;
+			$template->href = StringUtil::specialcharsUrl(System::getContainer()->get('router')->generate('contao_backend', array('do' => 'themes', 'table' => 'tl_module', 'act' => 'edit', 'id' => $this->id)));
 
 			return $template->parse();
 		}
