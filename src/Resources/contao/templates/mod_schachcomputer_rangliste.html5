@@ -34,7 +34,7 @@
         <?php foreach ($this->zeilen as $zeile): ?>
           <tr<?php if ($zeile['eigene']): ?> class="schachcomputer-eigene"<?php endif; ?>>
             <?php foreach ($zeile['zellen'] as $zelle): ?>
-              <td><?= $zelle ?></td>
+              <td><?= Contao\StringUtil::specialchars($zelle) ?></td>
             <?php endforeach; ?>
           </tr>
         <?php endforeach; ?>
@@ -42,7 +42,7 @@
           <tr class="schachcomputer-luecke"><td colspan="<?= count($this->kopf) ?>">…</td></tr>
           <tr class="schachcomputer-eigene">
             <?php foreach ($this->eigene['zellen'] as $zelle): ?>
-              <td><?= $zelle ?></td>
+              <td><?= Contao\StringUtil::specialchars($zelle) ?></td>
             <?php endforeach; ?>
           </tr>
         <?php endif; ?>
