@@ -96,6 +96,23 @@ class RanglistenTest extends TestCase
 	}
 
 	/**
+	 * disable wird mit != '1' verglichen, damit es sowohl zum char(1) aus
+	 * Contao 4.13 (leerer String) als auch zum tinyint/boolean aus Contao 5.7
+	 * passt: Ein Mitglied mit disable = '0' (wie 5.7 es speichert) muss
+	 * erscheinen, eines mit '1' nicht.
+	 */
+	public function testDisableAlsContao57TinyintErscheint(): void
+	{
+		$jetzt = self::STICHTAG;
+		$aktiv = Datenbank::mitglied($this->db, 'Til', 'Tinyint', '0');
+		$gesperrt = Datenbank::mitglied($this->db, 'Ede', 'Gesperrt', '1');
+		$this->spieler($aktiv, 1700, 60, 30, $jetzt - self::TAG);
+		$this->spieler($gesperrt, 1700, 60, 30, $jetzt - self::TAG);
+
+		$this->assertSame(array($aktiv), array_column($this->ranglisten()->aktuell('blitz', $jetzt), 'memberId'));
+	}
+
+	/**
 	 * Die ewige Liste ordnet nach Höchstwert; bei Gleichstand zählt das frühere Datum.
 	 */
 	public function testEwig(): void
