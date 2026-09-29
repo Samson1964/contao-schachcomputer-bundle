@@ -1,0 +1,24 @@
+# Alle Klassen unter src/ werden automatisch als Dienste registriert, damit
+# Controller, Cronjobs und Listener ohne weitere Einträge greifen. Ausgenommen
+# sind die Klassen, die Symfony bzw. der Contao Manager selbst laden, die
+# klassischen Frontend-Module (erzeugt Contao selbst), die Ressourcen und die
+# reinen Datenträger, die nie als Dienst gebraucht werden.
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+
+    Schachbulle\ContaoSchachcomputerBundle\:
+        resource: '../../'
+        exclude:
+            - '../../ContaoSchachcomputerBundle.php'
+            - '../../ContaoManager/'
+            - '../../DependencyInjection/'
+            - '../../Module/'
+            - '../../Resources/'
+            - '../../Partie/Partie.php'
+            - '../../Partie/PartieFehler.php'
+            - '../../Partie/Spieler.php'
+            - '../../Wertung/Wertung.php'
+            - '../../Wertung/Spielerstand.php'
