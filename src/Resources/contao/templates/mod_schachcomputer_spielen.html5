@@ -1,0 +1,54 @@
+<?php $this->extend('block_unsearchable'); ?>
+
+<?php $this->block('content'); ?>
+
+  <div class="schachcomputer" data-konfiguration="<?= Contao\StringUtil::specialchars(json_encode($this->konfiguration, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>">
+    <div class="schachcomputer-brett" aria-label="<?= $this->texte['brett'] ?>"></div>
+
+    <div class="schachcomputer-seite">
+      <p class="schachcomputer-wertungen" data-wertungen></p>
+
+      <form class="schachcomputer-start" data-start hidden>
+        <p>
+          <label for="schachcomputer-bedenkzeit-<?= $this->id ?>"><?= $this->texte['bedenkzeit'] ?></label>
+          <select id="schachcomputer-bedenkzeit-<?= $this->id ?>" data-bedenkzeit></select>
+        </p>
+        <p>
+          <label for="schachcomputer-stufe-<?= $this->id ?>"><?= $this->texte['stufe'] ?></label>
+          <select id="schachcomputer-stufe-<?= $this->id ?>" data-stufe></select>
+        </p>
+        <fieldset class="schachcomputer-farben">
+          <legend><?= $this->texte['farbe'] ?></legend>
+          <label><input type="radio" name="farbe" value="w"> <?= $this->texte['weiss'] ?></label>
+          <label><input type="radio" name="farbe" value="b"> <?= $this->texte['schwarz'] ?></label>
+          <label><input type="radio" name="farbe" value="zufall" checked> <?= $this->texte['zufall'] ?></label>
+        </fieldset>
+        <div class="schachcomputer-knoepfe">
+          <button type="submit" class="schachcomputer-knopf schachcomputer-knopf--haupt" data-aktion="gewertet"><?= $this->texte['gewertetStarten'] ?></button>
+          <button type="button" class="schachcomputer-knopf" data-aktion="uebung"><?= $this->texte['uebungStarten'] ?></button>
+        </div>
+        <p class="schachcomputer-hinweis" data-keine-bedenkzeit hidden><?= $this->texte['keineBedenkzeit'] ?></p>
+      </form>
+
+      <div class="schachcomputer-partie" data-partie hidden>
+        <p class="schachcomputer-gegner" data-gegner></p>
+        <p class="schachcomputer-uhr" data-uhr aria-label="<?= $this->texte['uhr'] ?>"></p>
+        <div class="schachcomputer-knoepfe">
+          <button type="button" class="schachcomputer-knopf" data-aktion="abbrechen" hidden><?= $this->texte['abbrechen'] ?></button>
+          <button type="button" class="schachcomputer-knopf" data-aktion="aufgeben" hidden><?= $this->texte['aufgeben'] ?></button>
+          <button type="button" class="schachcomputer-knopf" data-aktion="zuruecknehmen" hidden><?= $this->texte['zuruecknehmen'] ?></button>
+          <button type="button" class="schachcomputer-knopf" data-aktion="beenden" hidden><?= $this->texte['beenden'] ?></button>
+          <button type="button" class="schachcomputer-knopf" data-aktion="pgn" hidden><?= $this->texte['pgnKopieren'] ?></button>
+          <button type="button" class="schachcomputer-knopf schachcomputer-knopf--haupt" data-aktion="neu" hidden><?= $this->texte['neuePartie'] ?></button>
+        </div>
+      </div>
+
+      <p class="schachcomputer-status" data-status role="status" aria-live="polite"><?= $this->texte['laden'] ?></p>
+      <p class="schachcomputer-hinweis" data-gast hidden><?= $this->texte['gastHinweis'] ?></p>
+      <p class="schachcomputer-skala"><small><?= $this->texte['skala'] ?></small></p>
+    </div>
+  </div>
+
+  <script type="module" src="<?= $this->skript ?>"></script>
+
+<?php $this->endblock(); ?>

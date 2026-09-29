@@ -9,6 +9,8 @@ declare(strict_types=1);
  * @license LGPL-3.0-or-later
  */
 
+use Schachbulle\ContaoSchachcomputerBundle\Module\SpielenModule;
+
 // Eigene Gruppe im Backend-Menü; der Schlüssel landet als CSS-Klasse im
 // Markup, der Anzeigename kommt aus TL_LANG['MOD']['schachcomputer']
 $GLOBALS['BE_MOD']['schachcomputer'] = array
@@ -25,4 +27,10 @@ $GLOBALS['BE_MOD']['schachcomputer'] = array
 	(
 		'tables' => array('tl_schachcomputer_partie'),
 	),
+);
+
+// Frontend-Module in eigener Gruppe
+$GLOBALS['FE_MOD']['schachcomputer'] = array
+(
+	'schachcomputer_spielen'   => SpielenModule::class,
 );

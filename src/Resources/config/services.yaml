@@ -23,6 +23,10 @@ services:
             - '../../Wertung/Wertung.php'
             - '../../Wertung/Spielerstand.php'
 
+    # Öffentlich, weil die klassischen Frontend-Module ihn über den Container holen
+    Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst:
+        public: true
+
     # Controller müssen öffentlich sein, damit der Router sie abrufen kann
     Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController:
         public: true

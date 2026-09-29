@@ -1,0 +1,144 @@
+/*
+ * Schachcomputer: Brett links, Bedienung rechts; auf schmalen Bildschirmen
+ * untereinander. Farben über Eigenschaften, damit ein Theme sie überschreiben
+ * kann, ohne diese Datei anzufassen. Aufbau wie im Schachaufgaben-Bundle.
+ */
+.schachcomputer {
+	--schachcomputer-erfolg: #2e7d32;
+	--schachcomputer-fehler: #c62828;
+	--schachcomputer-haupt: #1f6fb2;
+	--schachcomputer-haupt-dunkel: #174f80;
+	--schachcomputer-rand: #c8c8c8;
+
+	display: grid;
+	grid-template-columns: minmax(0, 36rem) minmax(14rem, 1fr);
+	gap: 1.5rem;
+	align-items: start;
+}
+
+.schachcomputer-brett {
+	width: 100%;
+	aspect-ratio: 1;
+}
+
+/*
+ * Die gezogene Figur hängt cm-chessboard direkt an <body>, ohne z-index;
+ * in Themes mit eigenem Stapelkontext läge sie sonst unsichtbar dahinter
+ * (siehe Schachaufgaben-Bundle 1.2.1).
+ */
+body > svg.cm-chessboard-draggable-piece {
+	z-index: 10000;
+	display: block;
+	visibility: visible;
+	opacity: 1;
+	overflow: visible;
+	max-width: none;
+	max-height: none;
+}
+
+.schachcomputer-seite > *,
+.schachcomputer-start > *,
+.schachcomputer-partie > * {
+	margin: 0 0 1rem;
+}
+
+.schachcomputer-start label {
+	display: block;
+	margin-bottom: .25rem;
+	font-weight: bold;
+}
+
+.schachcomputer-start select {
+	width: 100%;
+	max-width: 20rem;
+	font: inherit;
+}
+
+.schachcomputer-farben {
+	border: 0;
+	padding: 0;
+}
+
+.schachcomputer-farben legend {
+	padding: 0;
+	font-weight: bold;
+}
+
+.schachcomputer-farben label {
+	display: inline-block;
+	margin-right: 1rem;
+	font-weight: normal;
+}
+
+.schachcomputer-uhr {
+	font-size: 2em;
+	font-variant-numeric: tabular-nums;
+	font-weight: bold;
+}
+
+.schachcomputer-status {
+	min-height: 3em;
+	font-weight: bold;
+}
+
+.schachcomputer-status[data-art="erfolg"] {
+	color: var(--schachcomputer-erfolg);
+}
+
+.schachcomputer-status[data-art="fehler"] {
+	color: var(--schachcomputer-fehler);
+}
+
+.schachcomputer-hinweis,
+.schachcomputer-skala {
+	opacity: .8;
+}
+
+.schachcomputer-knoepfe {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .5rem;
+}
+
+/*
+ * Knöpfe: Alle Zustände ausdrücklich mit Hinter- und Vordergrund, weil viele
+ * Themes für button:hover nur den Hintergrund setzen. Die doppelte Klasse hebt
+ * die Spezifität über die üblichen Theme-Regeln.
+ */
+.schachcomputer .schachcomputer-knopf {
+	padding: .6em 1.2em;
+	border: 1px solid var(--schachcomputer-rand);
+	border-radius: 4px;
+	background: #fff;
+	color: #1f1f1f;
+	font: inherit;
+	line-height: 1.2;
+	cursor: pointer;
+}
+
+.schachcomputer .schachcomputer-knopf:hover:not(:disabled) {
+	border-color: var(--schachcomputer-haupt-dunkel);
+	background: var(--schachcomputer-haupt-dunkel);
+	color: #fff;
+}
+
+.schachcomputer .schachcomputer-knopf:disabled {
+	opacity: .5;
+	cursor: default;
+}
+
+.schachcomputer .schachcomputer-knopf--haupt {
+	border-color: var(--schachcomputer-haupt);
+	background: var(--schachcomputer-haupt);
+	color: #fff;
+}
+
+.schachcomputer [hidden] {
+	display: none !important;
+}
+
+@media (max-width: 48rem) {
+	.schachcomputer {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
