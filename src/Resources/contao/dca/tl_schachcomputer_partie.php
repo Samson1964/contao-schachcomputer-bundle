@@ -34,10 +34,13 @@ $GLOBALS['TL_DCA']['tl_schachcomputer_partie'] = array
 		(
 			'keys' => array
 			(
-				'id'            => 'primary',
-				'memberId,ende' => 'index',
-				'gast'          => 'index',
-				'status'        => 'index',
+				'id'                => 'primary',
+				'memberId,ende'     => 'index',
+				'gast'              => 'index',
+				'status'            => 'index',
+				// Für die minütliche Nachhol-Abfrage in Partiedienst::allePruefen()
+				// (memberId>0 AND gewertet=1 AND status='beendet' AND verrechnet=0)
+				'verrechnet,status' => 'index',
 			)
 		)
 	),
