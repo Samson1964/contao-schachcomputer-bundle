@@ -474,6 +474,9 @@ class Schachcomputer {
                 await this.engine.starten(ENGINE_START_MS)
             } catch (fehler) {
                 console.error("Schachcomputer:", fehler)
+                // Ohne Neustart wartete der nächste Klick auf dasselbe hängende
+                // „bereit" – die Meldung rät aber zu „versuche es noch einmal"
+                this.engine.beenden()
                 if (generation === this.generation) {
                     this.status(this.texte.engineNichtBereit, "fehler")
                 }
