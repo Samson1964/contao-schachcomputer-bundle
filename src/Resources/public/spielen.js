@@ -183,11 +183,14 @@ class Schachcomputer {
     /**
      * Macht weiter, wenn die Seite aus dem bfcache zurückkommt.
      *
-     * Worker, Uhr und Frist hat seiteVerlassen() angehalten, und der Server
-     * kann die gewertete Partie inzwischen weitergeführt oder beendet haben:
-     * Deshalb wird der Stand neu geladen. Eine Übungspartie gibt es nur im
-     * Browser; sie wird fortgesetzt statt verworfen (war die Engine am Zug,
-     * sucht sie neu).
+     * Worker, Uhr und Frist hat seiteVerlassen() angehalten; die Engine wird
+     * hier neu vorgewärmt, weil pagehide ihren Worker beendet hat. Bei einer
+     * gewerteten Partie wird der Stand dieser Partie neu geholt (auch wenn sie
+     * inzwischen beendet wurde, etwa durch abgelaufene Uhr oder Zeitüberschreitung
+     * – standLaden() liefert nur noch laufende Partien und zeigte dann fälschlich
+     * das Startformular). Eine Übungspartie gibt es nur im Browser; sie wird
+     * fortgesetzt statt verworfen (war die Engine am Zug, sucht sie neu). Ohne
+     * laufende Partie bleibt es beim gewohnten Neuladen des Stands.
      *
      * @param {PageTransitionEvent} ereignis Das pageshow-Ereignis
      */
@@ -195,8 +198,13 @@ class Schachcomputer {
         if (!ereignis.persisted) {
             return
         }
+        this.engineVorwaermen()
         if (this.modus === "uebung") {
             this.weiter()
+            return
+        }
+        if (this.modus === "gewertet") {
+            this.partieNeuLaden()
             return
         }
         this.standLaden()
