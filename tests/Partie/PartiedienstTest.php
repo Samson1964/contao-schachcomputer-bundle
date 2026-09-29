@@ -319,6 +319,92 @@ class PartiedienstTest extends TestCase
 	}
 
 	/**
+	 * In der eigentlichen Nachholschleife (verrechnet=0, status=beendet) wirft
+	 * eine Partie bei jedem Versuch erneut; eine zweite, die im selben Lauf
+	 * ebenfalls ansteht, wird davon nicht aufgehalten und verrechnet trotzdem.
+	 */
+	public function testAllePruefenNachholschleifeLaesstAndereGleichzeitigeVerrechnungZu(): void
+	{
+		$logger = new class() extends AbstractLogger {
+			/**
+			 * @var array<int, string>
+			 */
+			public array $meldungen = array();
+
+			/**
+			 * Merkt sich jede Meldung.
+			 *
+			 * @param mixed                $level   Stufe
+			 * @param string|\Stringable   $message Meldung
+			 * @param array<string, mixed> $context Zusatzangaben
+			 */
+			public function log($level, $message, array $context = array()): void
+			{
+				$this->meldungen[] = $level.': '.$message;
+			}
+		};
+
+		// „dauerhaft" scheitert öfter, als dieser Test allePruefen() aufruft –
+		// das steht hier für „bei jedem Versuch"; „einmalig" erholt sich nach
+		// dem ersten Fehlschlag wieder
+		$wertungsdienst = new class($this->db, new Wertungsrechner(new Glicko2())) extends Wertungsdienst {
+			/**
+			 * @var array<int, int> Partie-ID => verbleibende Fehlschläge
+			 */
+			public array $scheitern = array();
+
+			/**
+			 * Wirft, solange für die Partie Fehlschläge übrig sind, sonst wie gewohnt.
+			 *
+			 * @param Partie                $partie  Die Partie
+			 * @param SessionInterface|null $session Sitzung des Gastes
+			 *
+			 * @return bool Wie Wertungsdienst::verrechnen()
+			 */
+			public function verrechnen(Partie $partie, ?SessionInterface $session): bool
+			{
+				if (($this->scheitern[$partie->id] ?? 0) > 0) {
+					--$this->scheitern[$partie->id];
+
+					throw new \RuntimeException('Deadlock beim Verrechnen');
+				}
+
+				return parent::verrechnen($partie, $session);
+			}
+		};
+
+		$dienst = new Partiedienst($this->db, $wertungsdienst, new Statistik($this->db, new NullLogger()), $logger);
+		$dauerhaft = $dienst->starten(Spieler::mitglied(7), null, $this->blitz, 1500, 'w', self::T0);
+		$einmalig = $dienst->starten(Spieler::mitglied(8), null, $this->blitz, 1500, 'w', self::T0);
+		$dienst->ziehen(Spieler::mitglied(7), null, $dauerhaft->id, 0, 'e2e4', null, self::T0 + 1000);
+		$dienst->ziehen(Spieler::mitglied(8), null, $einmalig->id, 0, 'e2e4', null, self::T0 + 1000);
+		$wertungsdienst->scheitern[$dauerhaft->id] = 3;
+		$wertungsdienst->scheitern[$einmalig->id] = 1;
+
+		// Erster Lauf: beide gelten als verlassen (zweite Schleife), beide
+		// scheitern dabei beim Verrechnen – ab jetzt stehen beide auch in der
+		// eigentlichen Nachholschleife (erste Schleife) an
+		$dienst->allePruefen(self::T0 + 70000);
+		$this->assertFalse($dienst->laden($dauerhaft->id)->verrechnet);
+		$this->assertFalse($dienst->laden($einmalig->id)->verrechnet);
+		$meldungenVorher = \count($logger->meldungen);
+
+		// Zweiter Lauf: die Nachholschleife greift für beide; „dauerhaft"
+		// scheitert erneut, „einmalig" hat sich erholt und wird trotzdem verrechnet
+		$dienst->allePruefen(self::T0 + 130000);
+
+		$this->assertFalse($dienst->laden($dauerhaft->id)->verrechnet);
+		$this->assertTrue($dienst->laden($einmalig->id)->verrechnet);
+		$this->assertCount($meldungenVorher + 1, $logger->meldungen);
+		$this->assertStringContainsString('Partie '.$dauerhaft->id.' nicht verrechnet', $logger->meldungen[$meldungenVorher]);
+
+		// Dritter Lauf: „dauerhaft" scheitert wieder – bei jedem Versuch
+		$dienst->allePruefen(self::T0 + 190000);
+		$this->assertFalse($dienst->laden($dauerhaft->id)->verrechnet);
+		$this->assertCount($meldungenVorher + 2, $logger->meldungen);
+	}
+
+	/**
 	 * Aufgeben verrechnet sofort, Abbrechen gar nicht.
 	 */
 	public function testAufgebenUndAbbrechen(): void

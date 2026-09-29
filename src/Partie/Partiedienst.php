@@ -395,7 +395,10 @@ class Partiedienst
 				$partie = $this->pruefen(Partie::ausZeile($zeile), null, $jetztMs);
 				$beendet += Partie::LAEUFT === $partie->status ? 0 : 1;
 			} catch (\Throwable $e) {
-				$this->logger->warning('Schachcomputer: Partie '.$zeile['id'].' nicht geprüft: '.$e->getMessage(), array('exception' => $e));
+				// pruefen() fängt ein Scheitern des eigenen Speicherns bereits ab
+				// (siehe dort); was hier durchschlägt, ist praktisch immer die
+				// anschließende Verrechnung, nicht die Fristprüfung selbst
+				$this->logger->warning('Schachcomputer: Partie '.$zeile['id'].' nicht verrechnet: '.$e->getMessage(), array('exception' => $e));
 			}
 		}
 
