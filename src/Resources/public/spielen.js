@@ -580,7 +580,11 @@ class Schachcomputer {
             return
         }
         const zug = this.chess.move(zugObjekt(uci))
-        await this.brett.setPosition(this.chess.fen(), true)
+        // Nicht auf die Animation warten: In einem Hintergrund-Tab ruht
+        // requestAnimationFrame, der Zug muss aber binnen der Engine-Frist beim
+        // Server sein. Das Brett holt die Darstellung nach, sobald der Tab
+        // wieder sichtbar ist.
+        this.brett.setPosition(this.chess.fen(), true)
         this.zugMarkieren(zug)
         if (this.modus === "uebung") {
             this.weiter()
