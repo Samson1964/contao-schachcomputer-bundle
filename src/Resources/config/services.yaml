@@ -46,3 +46,7 @@ services:
     # System::importStatic() aus dem Container holt
     Schachbulle\ContaoSchachcomputerBundle\Backend\PartiePgn:
         public: true
+
+    # Ebenso öffentlich (key-Callback), für die Statistik
+    Schachbulle\ContaoSchachcomputerBundle\Backend\StatistikSeite:
+        public: true

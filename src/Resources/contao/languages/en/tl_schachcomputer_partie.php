@@ -66,3 +66,4 @@ $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['delete'] = array('Delete', 'Del
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['show'] = array('Details', 'Show the details of game ID %s');
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['pgn'] = array('PGN', 'Download game ID %s as PGN');
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['nichtGefunden'] = 'Game %d not found.';
+$GLOBALS['TL_LANG']['tl_schachcomputer_partie']['statistik'] = array('Statistics', 'Evaluate visits and games');

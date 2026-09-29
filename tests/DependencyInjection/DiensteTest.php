@@ -13,6 +13,7 @@ namespace Schachbulle\ContaoSchachcomputerBundle\Tests\DependencyInjection;
 
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController;
 use Schachbulle\ContaoSchachcomputerBundle\DependencyInjection\ContaoSchachcomputerExtension;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -36,7 +37,7 @@ class DiensteTest extends TestCase
 		$container = new ContainerBuilder();
 		$container->setParameter('kernel.project_dir', \dirname(__DIR__, 2));
 
-		foreach (array(Connection::class, TokenStorageInterface::class, RequestStack::class) as $contaoDienst) {
+		foreach (array(Connection::class, TokenStorageInterface::class, RequestStack::class, LoggerInterface::class) as $contaoDienst) {
 			$container->register($contaoDienst)->setSynthetic(true)->setPublic(true);
 		}
 

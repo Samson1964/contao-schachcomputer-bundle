@@ -14,9 +14,11 @@ namespace Schachbulle\ContaoSchachcomputerBundle\Tests\Controller;
 use Contao\FrontendUser;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Schachbulle\ContaoSchachcomputerBundle\Controller\PgnController;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\PgnExport;
+use Schachbulle\ContaoSchachcomputerBundle\Statistik\Statistik;
 use Schachbulle\ContaoSchachcomputerBundle\Tests\Datenbank;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Glicko2;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsdienst;
@@ -42,7 +44,7 @@ class PgnControllerTest extends TestCase
 	protected function setUp(): void
 	{
 		$this->db = Datenbank::verbindung();
-		$this->partiedienst = new Partiedienst($this->db, new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2())));
+		$this->partiedienst = new Partiedienst($this->db, new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2())), new Statistik($this->db, new NullLogger()));
 		$this->tokenStorage = new TokenStorage();
 	}
 

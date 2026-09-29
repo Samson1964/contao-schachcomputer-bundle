@@ -10,6 +10,7 @@ declare(strict_types=1);
  */
 
 use Schachbulle\ContaoSchachcomputerBundle\Backend\PartiePgn;
+use Schachbulle\ContaoSchachcomputerBundle\Backend\StatistikSeite;
 use Schachbulle\ContaoSchachcomputerBundle\Module\PartienModule;
 use Schachbulle\ContaoSchachcomputerBundle\Module\RanglisteModule;
 use Schachbulle\ContaoSchachcomputerBundle\Module\SpielenModule;
@@ -31,7 +32,9 @@ $GLOBALS['BE_MOD']['schachcomputer'] = array
 	(
 		'tables' => array('tl_schachcomputer_partie'),
 		// PGN einer Partie herunterladen (do=schachcomputer_partien&key=pgn&id=…)
-		'pgn'    => array(PartiePgn::class, 'herunterladen'),
+		'pgn'       => array(PartiePgn::class, 'herunterladen'),
+		// Statistik der Aufrufe und Partien (do=schachcomputer_partien&key=statistik)
+		'statistik' => array(StatistikSeite::class, 'ausfuehren'),
 	),
 );
 

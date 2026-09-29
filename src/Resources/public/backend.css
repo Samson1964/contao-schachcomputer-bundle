@@ -1,0 +1,179 @@
+/*
+ * Schachcomputer — Stile der Backend-Statistik (Kopie aus dem Schachaufgaben-Bundle).
+ *
+ * Werte und Aufbau wie in der Statistik des counter-Bundles (dort fhc-stat-*),
+ * damit die Statistiken der Erweiterungen im Backend einheitlich aussehen.
+ * Eingebunden von Backend\StatistikSeite.
+ */
+
+.sc-stat-steuerung {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px 26px;
+	margin: 0 0 14px;
+	padding: 12px 14px;
+	border: 1px solid #ddd;
+	border-radius: 3px;
+	background: #f7f7f7;
+}
+
+.sc-stat-gruppe {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+}
+
+.sc-stat-titel {
+	margin-right: 4px;
+	font-weight: bold;
+	color: #5c5c5c;
+}
+
+.sc-stat-knopf {
+	display: inline-block;
+	padding: 4px 10px;
+	border: 1px solid #c8c8c8;
+	border-radius: 3px;
+	background: #fff;
+	color: #1f1f1f;
+	text-decoration: none;
+}
+
+a.sc-stat-knopf:hover {
+	border-color: #1F618D;
+	color: #1F618D;
+}
+
+.sc-stat-knopf.aktiv {
+	border-color: #1F618D;
+	background: #1F618D;
+	color: #fff;
+	font-weight: bold;
+}
+
+.sc-stat-knopf.gesperrt {
+	opacity: 0.45;
+	cursor: default;
+}
+
+.sc-stat-navigation {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+	margin: 0 0 14px;
+}
+
+.sc-stat-zeitraum {
+	font-size: 1.1em;
+	color: #1f1f1f;
+}
+
+.sc-stat-hinweis {
+	margin-left: auto;
+	color: #8a8a8a;
+}
+
+/* Mehrere Kennzahlen nebeneinander, jede im Stil der Counter-Kennzahl */
+.sc-stat-kennzahlen {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin: 0 0 14px;
+}
+
+.sc-stat-kennzahl {
+	display: flex;
+	flex: 1 1 150px;
+	flex-direction: column;
+	gap: 2px;
+	padding: 10px 14px;
+	border: 1px solid #cfe0ec;
+	border-radius: 3px;
+	background: #eaf2f8;
+}
+
+.sc-stat-kennzahl strong {
+	font-size: 1.4em;
+	color: #1F618D;
+}
+
+.sc-stat-kennzahl small {
+	color: #5c5c5c;
+}
+
+.sc-stat-diagramm {
+	margin: 0 0 22px;
+	padding: 12px 14px 6px;
+	border: 1px solid #ddd;
+	border-radius: 3px;
+	background: #fff;
+}
+
+.sc-stat-legende {
+	/* Eigene Zeile erzwingen, sonst rutscht das Diagramm neben die Legende */
+	clear: both;
+	width: 100%;
+	margin-bottom: 8px;
+	color: #5c5c5c;
+}
+
+.sc-stat-farbe {
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	margin: 0 6px 0 14px;
+	vertical-align: -1px;
+}
+
+.sc-stat-farbe:first-child {
+	margin-left: 0;
+}
+
+.sc-stat-farbe--dunkel {
+	background: #1F618D;
+}
+
+.sc-stat-farbe--hell {
+	background: #7FB3D5;
+}
+
+.sc-stat-zwischentitel {
+	margin: 18px 0 8px;
+	font-size: 1.1em;
+}
+
+.sc-stat-scroll {
+	overflow-x: auto;
+	clear: both;
+	width: 100%;
+}
+
+.sc-stat-tabelle {
+	width: 100%;
+	/* Ohne Mindestbreite quetscht sich die Tabelle im schmalen Backend-Fenster */
+	min-width: 720px;
+	border-collapse: collapse;
+}
+
+.sc-stat-tabelle th,
+.sc-stat-tabelle td {
+	padding: 6px 10px;
+	border-bottom: 1px solid #e2e2e2;
+	text-align: left;
+}
+
+.sc-stat-tabelle th {
+	background: #f2f2f2;
+	font-weight: bold;
+}
+
+.sc-stat-tabelle .rechts {
+	text-align: right;
+	white-space: nowrap;
+}
+
+.sc-stat-tabelle tr.odd td {
+	background: #fafafa;
+}

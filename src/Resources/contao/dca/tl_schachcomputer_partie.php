@@ -56,6 +56,16 @@ $GLOBALS['TL_DCA']['tl_schachcomputer_partie'] = array
 			'fields'      => array('beginn', 'memberId', 'klasse', 'stufe', 'ergebnis', 'grund'),
 			'showColumns' => true,
 		),
+		'global_operations' => array
+		(
+			'statistik' => array
+			(
+				'label' => &$GLOBALS['TL_LANG']['tl_schachcomputer_partie']['statistik'],
+				'href'  => 'key=statistik',
+				'class' => 'header_statistik',
+				'icon'  => 'bundles/contaoschachcomputer/statistik.svg',
+			)
+		),
 		'operations' => array
 		(
 			'pgn' => array

@@ -13,10 +13,12 @@ namespace Schachbulle\ContaoSchachcomputerBundle\Tests\Partie;
 
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partie;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\PartieFehler;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Spieler;
+use Schachbulle\ContaoSchachcomputerBundle\Statistik\Statistik;
 use Schachbulle\ContaoSchachcomputerBundle\Tests\Datenbank;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Glicko2;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsdienst;
@@ -43,7 +45,7 @@ class PartiedienstTest extends TestCase
 	protected function setUp(): void
 	{
 		$this->db = Datenbank::verbindung();
-		$this->dienst = new Partiedienst($this->db, new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2())));
+		$this->dienst = new Partiedienst($this->db, new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2())), new Statistik($this->db, new NullLogger()));
 		$this->blitz = Datenbank::bedenkzeit($this->db, 'blitz', 3, 2);
 	}
 
@@ -254,6 +256,36 @@ class PartiedienstTest extends TestCase
 		$this->assertSame(2, $this->dienst->anzahlEigenePartien(7));
 		$this->assertSame(array($zweite->id, $erste->id), array_map(static fn (Partie $p): int => $p->id, $this->dienst->eigenePartien(7, 10, 0)));
 		$this->assertSame(array($erste->id), array_map(static fn (Partie $p): int => $p->id, $this->dienst->eigenePartien(7, 1, 1)));
+	}
+
+	/**
+	 * Start, Ende und Übung werden gezählt, jedes Ende genau einmal.
+	 */
+	public function testStatistik(): void
+	{
+		$mitglied = Spieler::mitglied(7);
+		$gast = Spieler::gast('abc');
+
+		$erste = $this->dienst->starten($mitglied, null, $this->blitz, 1500, 'w', self::T0);
+		$this->dienst->ziehen($mitglied, null, $erste->id, 0, 'e2e4', null, self::T0 + 1000);
+		$this->dienst->aufgeben($mitglied, null, $erste->id, self::T0 + 2000);
+
+		$zweite = $this->dienst->starten($gast, null, $this->blitz, 1500, 'w', self::T0 + 3000);
+		$veraltet = $this->dienst->laden($zweite->id);
+		$this->dienst->pruefen($veraltet, null, self::T0 + 3000 + 61001);
+		$this->dienst->pruefen($this->dienst->laden($zweite->id), null, self::T0 + 3000 + 99999);
+		$this->dienst->pruefen($veraltet, null, self::T0 + 3000 + 61002);
+
+		$this->dienst->uebungSpeichern(7, 900, 'w', array('e2e4'), true, self::T0);
+
+		$zaehler = array();
+
+		foreach ($this->db->fetchAllAssociative('SELECT art, gast, SUM(anzahl) AS anzahl FROM tl_schachcomputer_statistik GROUP BY art, gast') as $zeile) {
+			$zaehler[$zeile['art'].('1' === (string) $zeile['gast'] ? ':gast' : '')] = (int) $zeile['anzahl'];
+		}
+
+		ksort($zaehler);
+		$this->assertSame(array('abgebrochen:gast' => 1, 'gestartet' => 1, 'gestartet:gast' => 1, 'uebung' => 1, 'verloren' => 1), $zaehler);
 	}
 
 	/**

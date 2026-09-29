@@ -13,6 +13,7 @@ namespace Schachbulle\ContaoSchachcomputerBundle\Tests\Cron;
 
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Schachbulle\ContaoSchachcomputerBundle\Cron\AufraeumCron;
 use Schachbulle\ContaoSchachcomputerBundle\Cron\StichtagCron;
 use Schachbulle\ContaoSchachcomputerBundle\Cron\ZeitablaufCron;
@@ -21,6 +22,7 @@ use Schachbulle\ContaoSchachcomputerBundle\Partie\Partie;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Spieler;
 use Schachbulle\ContaoSchachcomputerBundle\Rangliste\Stichtagsliste;
+use Schachbulle\ContaoSchachcomputerBundle\Statistik\Statistik;
 use Schachbulle\ContaoSchachcomputerBundle\Tests\Datenbank;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Glicko2;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsdienst;
@@ -43,7 +45,7 @@ class AufgabenTest extends TestCase
 	protected function setUp(): void
 	{
 		$this->db = Datenbank::verbindung();
-		$this->partiedienst = new Partiedienst($this->db, new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2())));
+		$this->partiedienst = new Partiedienst($this->db, new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2())), new Statistik($this->db, new NullLogger()));
 	}
 
 	/**

@@ -14,8 +14,10 @@ namespace Schachbulle\ContaoSchachcomputerBundle\Tests\Controller;
 use Contao\FrontendUser;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\NullLogger;
 use Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst;
+use Schachbulle\ContaoSchachcomputerBundle\Statistik\Statistik;
 use Schachbulle\ContaoSchachcomputerBundle\Tests\Datenbank;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Glicko2;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsdienst;
@@ -154,6 +156,22 @@ class PartieControllerTest extends TestCase
 	}
 
 	/**
+	 * Nur der Stand mit ?aufruf=1 zählt als Aufruf.
+	 */
+	public function testAufrufWirdGezaehlt(): void
+	{
+		$controller = $this->controller();
+		$anfrage = Request::create('/', 'GET', array('aufruf' => '1'));
+		$anfrage->setSession($this->sitzung);
+
+		$controller->stand($anfrage);
+		$controller->stand($this->get());
+
+		$zeile = $this->db->fetchAssociative('SELECT art, gast, anzahl FROM tl_schachcomputer_statistik');
+		$this->assertSame(array('aufruf', '1', 1), array($zeile['art'], (string) $zeile['gast'], (int) $zeile['anzahl']));
+	}
+
+	/**
 	 * Baut den Controller mit fester Uhr (T0).
 	 *
 	 * @return PartieController Der Controller
@@ -161,8 +179,9 @@ class PartieControllerTest extends TestCase
 	private function controller(): PartieController
 	{
 		$wertungsdienst = new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2()));
+		$statistik = new Statistik($this->db, new NullLogger());
 
-		return new class(new Partiedienst($this->db, $wertungsdienst), $wertungsdienst, $this->tokenStorage) extends PartieController {
+		return new class(new Partiedienst($this->db, $wertungsdienst, $statistik), $wertungsdienst, $this->tokenStorage, $statistik) extends PartieController {
 			/**
 			 * Feste Zeit statt der Systemuhr.
 			 *

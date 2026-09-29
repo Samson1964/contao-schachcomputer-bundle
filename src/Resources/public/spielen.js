@@ -130,7 +130,7 @@ class Schachcomputer {
         window.addEventListener("pagehide", () => this.engine.beenden())
 
         this.auswahlFuellen()
-        this.standLaden()
+        this.standLaden(true)
     }
 
     // ------------------------------------------------------------------
@@ -166,13 +166,16 @@ class Schachcomputer {
 
     /**
      * Holt Wertungen und eine laufende Partie; setzt sie fort oder zeigt den Start.
+     *
+     * @param {boolean} [aufruf] true nur beim ersten Laden der Seite: Dann
+     *                           zählt der Server einen Aufruf für die Statistik
      */
-    async standLaden() {
+    async standLaden(aufruf = false) {
         const generation = ++this.generation
         this.status(this.texte.laden)
         let antwort
         try {
-            antwort = await this.anfrage(this.konfiguration.standUrl)
+            antwort = await this.anfrage(this.konfiguration.standUrl + (aufruf ? "?aufruf=1" : ""))
         } catch (fehler) {
             this.fehler(fehler)
             return

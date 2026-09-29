@@ -18,6 +18,7 @@ use Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\PartieFehler;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Spieler;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Uhr;
+use Schachbulle\ContaoSchachcomputerBundle\Statistik\Statistik;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsdienst;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -50,18 +51,22 @@ class PartieController
 
 	private TokenStorageInterface $tokenStorage;
 
+	private Statistik $statistik;
+
 	/**
 	 * Übernimmt die benötigten Dienste.
 	 *
 	 * @param Partiedienst          $partiedienst   Führt die Partien
 	 * @param Wertungsdienst        $wertungsdienst Liefert Wertungen, trägt Gastpartien nach
 	 * @param TokenStorageInterface $tokenStorage   Liefert das angemeldete Mitglied
+	 * @param Statistik             $statistik      Zählt Aufrufe des Moduls
 	 */
-	public function __construct(Partiedienst $partiedienst, Wertungsdienst $wertungsdienst, TokenStorageInterface $tokenStorage)
+	public function __construct(Partiedienst $partiedienst, Wertungsdienst $wertungsdienst, TokenStorageInterface $tokenStorage, Statistik $statistik)
 	{
 		$this->partiedienst = $partiedienst;
 		$this->wertungsdienst = $wertungsdienst;
 		$this->tokenStorage = $tokenStorage;
+		$this->statistik = $statistik;
 	}
 
 	/**
@@ -70,6 +75,9 @@ class PartieController
 	 * Mit ?partie=ID kommt genau diese eigene Partie zurück, auch wenn sie
 	 * inzwischen beendet ist – so erfährt der Browser nach Ablauf der Uhr das
 	 * Ergebnis. Gästen werden Partien nachgetragen, die der Cronjob beendet hat.
+	 * Mit ?aufruf=1 (nur beim ersten Laden der Seite) zählt die Anfrage als
+	 * Aufruf für die Statistik; gezählt wird hier statt im Modul, weil Contao
+	 * die Seite für Gäste aus dem Cache liefern kann.
 	 *
 	 * @param Request $request Die Anfrage; ihre Sitzung wird bei Gästen gestartet
 	 *
@@ -80,6 +88,10 @@ class PartieController
 		$session = $request->getSession();
 		$spieler = $this->spieler($session);
 		$jetzt = $this->jetztMs();
+
+		if ($request->query->getBoolean('aufruf')) {
+			$this->statistik->zaehlen(Statistik::AUFRUF, $spieler->istGast(), intdiv($jetzt, 1000));
+		}
 
 		if ($spieler->istGast()) {
 			$this->wertungsdienst->gastNachtragen($spieler->gastkennung(), $session);

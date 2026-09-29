@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace Schachbulle\ContaoSchachcomputerBundle\Partie;
 
 use Doctrine\DBAL\Connection;
+use Schachbulle\ContaoSchachcomputerBundle\Statistik\Statistik;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Klassen;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsdienst;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
@@ -31,16 +32,20 @@ class Partiedienst
 
 	private Wertungsdienst $wertungsdienst;
 
+	private Statistik $statistik;
+
 	/**
 	 * Übernimmt die benötigten Dienste.
 	 *
 	 * @param Connection     $connection     Die Datenbankverbindung von Contao
 	 * @param Wertungsdienst $wertungsdienst Verrechnet beendete Partien
+	 * @param Statistik      $statistik      Zählt Starts, Ergebnisse und Übungen
 	 */
-	public function __construct(Connection $connection, Wertungsdienst $wertungsdienst)
+	public function __construct(Connection $connection, Wertungsdienst $wertungsdienst, Statistik $statistik)
 	{
 		$this->connection = $connection;
 		$this->wertungsdienst = $wertungsdienst;
+		$this->statistik = $statistik;
 	}
 
 	/**
@@ -244,6 +249,7 @@ class Partiedienst
 		);
 
 		$this->einfuegen($partie);
+		$this->statistik->zaehlen(Statistik::GESTARTET, $spieler->istGast(), intdiv($jetztMs, 1000));
 
 		return $partie;
 	}
@@ -334,6 +340,7 @@ class Partiedienst
 			return $this->laden($partie->id) ?? $partie;
 		}
 
+		$this->endeZaehlen($partie, $jetztMs);
 		$this->wertungsdienst->verrechnen($partie, $session);
 
 		return $partie;
@@ -377,6 +384,7 @@ class Partiedienst
 	{
 		$partie = Ablauf::uebung($memberId, $stufe, $farbe, $zuege, $aufgegeben, $jetztMs);
 		$this->einfuegen($partie);
+		$this->statistik->zaehlen(Statistik::UEBUNG, false, intdiv($jetztMs, 1000));
 
 		return $partie;
 	}
@@ -414,9 +422,41 @@ class Partiedienst
 		}
 
 		$this->speichern($partie, $alteZugnummer);
+		$this->endeZaehlen($partie, $jetztMs);
 		$this->wertungsdienst->verrechnen($partie, $session);
 
 		return $partie;
+	}
+
+	/**
+	 * Zählt das Ende einer gewerteten Partie für die Statistik.
+	 *
+	 * Wird nur nach einem erfolgreichen bedingten Speichern aufgerufen; weil
+	 * das den Wechsel von „läuft" auf „beendet" genau einmal zulässt, zählt
+	 * auch jedes Ende genau einmal.
+	 *
+	 * @param Partie $partie  Die gespeicherte Partie
+	 * @param int    $jetztMs Aktueller Zeitpunkt
+	 */
+	private function endeZaehlen(Partie $partie, int $jetztMs): void
+	{
+		if (Partie::LAEUFT === $partie->status) {
+			return;
+		}
+
+		$punkte = $partie->punkte();
+
+		if (Partie::ABGEBROCHEN === $partie->status || null === $punkte) {
+			$art = Statistik::ABGEBROCHEN;
+		} elseif (1.0 === $punkte) {
+			$art = Statistik::GEWONNEN;
+		} elseif (0.5 === $punkte) {
+			$art = Statistik::REMIS;
+		} else {
+			$art = Statistik::VERLOREN;
+		}
+
+		$this->statistik->zaehlen($art, 0 === $partie->memberId, intdiv($jetztMs, 1000));
 	}
 
 	/**

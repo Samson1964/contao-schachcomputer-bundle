@@ -53,7 +53,7 @@ class DatenbankSchemaTest extends TestCase
 	 */
 	public function tabellen(): array
 	{
-		$tabellen = array('tl_schachcomputer_bedenkzeit', 'tl_schachcomputer_spieler', 'tl_schachcomputer_verlauf', 'tl_schachcomputer_partie', 'tl_schachcomputer_stichtag');
+		$tabellen = array('tl_schachcomputer_bedenkzeit', 'tl_schachcomputer_spieler', 'tl_schachcomputer_verlauf', 'tl_schachcomputer_partie', 'tl_schachcomputer_stichtag', 'tl_schachcomputer_statistik');
 
 		return array_combine($tabellen, array_map(static fn (string $t): array => array($t), $tabellen));
 	}

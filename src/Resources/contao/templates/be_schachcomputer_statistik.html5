@@ -1,0 +1,135 @@
+<?php
+/**
+ * Backend-Template der Statistik (do=schachcomputer_partien&key=statistik).
+ * Aufbau wie be_schachaufgaben_statistik aus dem Schachaufgaben-Bundle.
+ */
+$t = $this->texte;
+$zahl = static fn ($wert): string => number_format((int) $wert, 0, ',', '.');
+$punkte = static fn (float $wert): string => rtrim(rtrim(number_format($wert, 1, ',', '.'), '0'), ',');
+$s = $this->summen;
+?>
+<div id="tl_buttons">
+	<a href="<?= $this->urlModul ?>" class="header_back" title="" accesskey="b" onclick="Backend.getScrollOffset()"><?= $t['zurueckModul'] ?></a>
+</div>
+
+<h2 class="sub_headline"><?= $t['ueberschrift'] ?></h2>
+
+<div class="tl_listing_container sc-stat">
+
+	<div class="sc-stat-steuerung">
+		<div class="sc-stat-gruppe">
+			<span class="sc-stat-titel"><?= $t['zeitraumTitel'] ?></span>
+			<?php foreach ($this->ebenenLinks as $l): ?>
+				<a href="<?= $l['url'] ?>" class="sc-stat-knopf<?= $l['aktiv'] ? ' aktiv' : '' ?>"><?= $l['text'] ?></a>
+			<?php endforeach; ?>
+		</div>
+	</div>
+
+	<div class="sc-stat-navigation">
+		<a href="<?= $this->urlZurueck ?>" class="sc-stat-knopf">&#9664;&nbsp;<?= $t['zurueck'] ?></a>
+		<span class="sc-stat-zeitraum"><strong><?= $this->zeitraum ?></strong></span>
+		<?php if ($this->kannVor): ?>
+			<a href="<?= $this->urlVor ?>" class="sc-stat-knopf"><?= $t['vor'] ?>&nbsp;&#9654;</a>
+			<a href="<?= $this->urlHeute ?>" class="sc-stat-knopf"><?= $t['heute'] ?></a>
+		<?php else: ?>
+			<span class="sc-stat-knopf gesperrt" aria-disabled="true"><?= $t['vor'] ?>&nbsp;&#9654;</span>
+		<?php endif; ?>
+		<span class="sc-stat-hinweis"><?= sprintf($t['bestand'], $zahl($this->bestand['bedenkzeiten']), $zahl($this->bestand['spieler']), $zahl($this->bestand['neueSpieler'])) ?></span>
+	</div>
+
+	<?php if (!$this->hatDaten): ?>
+
+		<p class="tl_info"><?= $t['keineDaten'] ?></p>
+
+	<?php else: ?>
+
+		<div class="sc-stat-kennzahlen">
+			<?php foreach (array('aufruf', 'gestartet', 'beendet', 'abgebrochen', 'uebung') as $art): ?>
+				<div class="sc-stat-kennzahl">
+					<strong><?= $zahl($s[$art]['gesamt']) ?></strong>
+					<span><?= $t['art_'.$art] ?></span>
+					<small><?= sprintf($t['davon'], $zahl($s[$art]['mitglieder']), $zahl($s[$art]['gaeste'])) ?></small>
+				</div>
+			<?php endforeach; ?>
+			<div class="sc-stat-kennzahl">
+				<strong><?= null === $this->quote ? '–' : $this->quote.' %' ?></strong>
+				<span><?= $t['quote'] ?></span>
+				<small><?= sprintf($t['ergebnisse'], $zahl($s['gewonnen']['gesamt']), $zahl($s['remis']['gesamt']), $zahl($s['verloren']['gesamt'])) ?></small>
+			</div>
+		</div>
+
+		<?php foreach (array('diagrammGestartet' => 'legendeGestartet', 'diagrammGewonnen' => 'legendeGewonnen') as $diagramm => $legende): ?>
+			<div class="sc-stat-diagramm">
+				<div class="sc-stat-legende">
+					<span class="sc-stat-farbe sc-stat-farbe--dunkel"></span><?= $t[$legende][0] ?>
+					<span class="sc-stat-farbe sc-stat-farbe--hell"></span><?= $t[$legende][1] ?>
+				</div>
+				<div class="sc-stat-scroll"><?= $this->$diagramm ?></div>
+			</div>
+		<?php endforeach; ?>
+
+		<h3 class="sc-stat-zwischentitel"><?= $t['bedenkzeiten'] ?></h3>
+		<?php if (empty($this->bedenkzeiten)): ?>
+			<p class="tl_help"><?= $t['keineMitglieder'] ?></p>
+		<?php else: ?>
+			<div class="sc-stat-scroll">
+				<table class="tl_listing sc-stat-tabelle">
+					<thead>
+						<tr>
+							<th class="rechts"><?= $t['platz'] ?></th>
+							<th class="rechts"><?= $t['partien'] ?></th>
+							<th><?= $t['bedenkzeit'] ?></th>
+							<th class="rechts"><?= $t['quote'] ?></th>
+							<th class="rechts"><?= $t['stufe'] ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ($this->bedenkzeiten as $i => $z): ?>
+							<tr class="<?= $i % 2 ? 'even' : 'odd' ?>">
+								<td class="rechts"><?= $i + 1 ?></td>
+								<td class="rechts"><strong><?= $zahl($z['partien']) ?></strong></td>
+								<td><?= Contao\StringUtil::specialchars(($this->klassen[$z['klasse']] ?? $z['klasse']).' '.$z['minuten'].'+'.$z['inkrement']) ?></td>
+								<td class="rechts"><?= $z['quote'] ?> %</td>
+								<td class="rechts"><?= $z['stufe'] ?></td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+			</div>
+		<?php endif; ?>
+
+		<h3 class="sc-stat-zwischentitel"><?= $t['aktivste'] ?></h3>
+		<?php if (empty($this->aktivste)): ?>
+			<p class="tl_help"><?= $t['keineMitglieder'] ?></p>
+		<?php else: ?>
+			<div class="sc-stat-scroll">
+				<table class="tl_listing sc-stat-tabelle">
+					<thead>
+						<tr>
+							<th class="rechts"><?= $t['platz'] ?></th>
+							<th class="rechts"><?= $t['partien'] ?></th>
+							<th class="rechts"><?= $t['punkte'] ?></th>
+							<th><?= $t['name'] ?></th>
+							<th class="rechts"><?= $t['besteWertung'] ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ($this->aktivste as $i => $z): ?>
+							<tr class="<?= $i % 2 ? 'even' : 'odd' ?>">
+								<td class="rechts"><?= $i + 1 ?></td>
+								<td class="rechts"><strong><?= $zahl($z['partien']) ?></strong></td>
+								<td class="rechts"><?= $punkte($z['punkte']) ?></td>
+								<td><?= Contao\StringUtil::specialchars($z['name']) ?></td>
+								<td class="rechts"><?= null === $z['wertung'] ? '–' : $z['wertung'] ?></td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+			</div>
+		<?php endif; ?>
+
+		<p class="tl_help"><?= $t['hinweis'] ?></p>
+
+	<?php endif; ?>
+
+</div>
