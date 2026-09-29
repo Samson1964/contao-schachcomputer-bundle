@@ -41,18 +41,37 @@ Ranglisten. Läuft unter **Contao 4.13 und Contao 5.7** (PHP 8.1 bis 8.4).
    * * * * * php /pfad/zu/contao/vendor/bin/contao-console contao:cron
    ```
 
+5. **Content-Security-Policy.** Wer eine CSP setzt (ab Contao 5.3 je
+   Startpunkt einstellbar), muss in `script-src` zusätzlich
+   `'wasm-unsafe-eval'` erlauben. Sonst startet Stockfish nicht, und es
+   beginnt keine gewertete Partie; die Seite zeigt dann einen Hinweis.
+6. **Seiten-Cache.** Die Bedenkzeiten stehen im Quelltext der Seite mit dem
+   Modul „Spielen“. Bei eingeschaltetem Seiten-Cache erscheinen neue oder
+   geänderte Bedenkzeiten erst, wenn der Cache abgelaufen ist oder geleert
+   wird. Für die Ranglisten gilt dasselbe.
+
 ## Spielregeln und Wertung
 
 - Der Server führt jede gewertete Partie: Jeder Zug wird auf dem Server
-  geprüft, die Uhr läuft auf dem Server. Wer den Tab schließt, verliert auf
-  Zeit.
+  geprüft, die Uhr läuft auf dem Server.
 - Nur der Spieler hat eine Uhr. Sie läuft ab seinem zweiten Zug; für den
   ersten Zug gibt es 60 Sekunden, sonst wird die Partie ungewertet
   abgebrochen. Die Zeitgutschrift gibt es ab dem zweiten Zug. Bis zu einer
   Sekunde Übertragungszeit je Zug wird ausgeglichen.
-- Die Engine rechnet in allen Klassen 1 bis 2 Sekunden je Zug. Bleibt ein
-  Engine-Zug 60 Sekunden aus (Tab geschlossen), gilt die Partie als
-  verlassen und ist verloren.
+- Die Engine rechnet in allen Klassen 1 bis 2 Sekunden je Zug, und zwar im
+  Browser des Spielers. Bleibt ein Engine-Zug 60 Sekunden aus, gilt die
+  Partie als verlassen und ist verloren.
+- **Tab schließen:** Ist der Spieler am Zug, läuft seine Uhr weiter ab, und
+  er verliert auf Zeit. Ist die Engine am Zug, gilt die Partie nach
+  60 Sekunden als verlassen. Vor dem ersten eigenen Zug wird die Partie
+  ungewertet abgebrochen.
+- **Hintergrund-Tab:** Ein Tab im Hintergrund schadet nicht; die Engine
+  zieht dort weiter. Auf Mobilgeräten kann das Betriebssystem einen Tab im
+  Hintergrund aber anhalten – dann gilt dasselbe wie beim Schließen.
+- **Stockfish lädt nicht:** Die Engine wird schon beim Aufruf der Seite
+  geladen. Ist sie nach 20 Sekunden nicht bereit, beginnt keine gewertete
+  Partie, und es erscheint ein Hinweis. Antwortet sie während einer Partie
+  nicht, wird sie einmal frisch gestartet.
 - Remis nach den Regeln (Patt, dreifache Wiederholung, 50 Züge, ungenügendes
   Material) wird selbsttätig erkannt. Läuft die Zeit ab und hat die Engine
   kein Mattmaterial mehr, endet die Partie remis.
@@ -66,9 +85,11 @@ geeicht. Das sind keine DWZ-Werte: Stockfish mit 1500 spielt stärker als ein
 Vereinsspieler mit DWZ 1500. Die Stufen unter 1400 sind nachgebaut
 (begrenzte Suchtiefe und Zufallszüge) und geschätzt.
 
-**Bekannte Grenze:** Die Engine rechnet im Browser des Spielers. Wer gezielt
+**Bekannte Grenzen:** Die Engine rechnet im Browser des Spielers. Wer gezielt
 manipuliert, könnte ihr schlechte Züge unterschieben; der Server prüft nur,
-ob sie regelgerecht sind. Für eine Vereinsseite ist das vertretbar.
+ob sie regelgerecht sind. Ebenso kann ein manipulierter Browser den fertigen
+Engine-Zug bis knapp 60 Sekunden zurückhalten, während die Uhr des Spielers
+steht, und so Bedenkzeit gewinnen. Für eine Vereinsseite ist das vertretbar.
 
 ## Statistik im Backend
 
