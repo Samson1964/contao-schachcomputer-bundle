@@ -52,6 +52,7 @@ $GLOBALS['TL_DCA']['tl_schachcomputer_spieler'] = array
 			'flag'        => DataContainer::SORT_DESC,
 			'panelLayout' => 'filter;sort,limit',
 		),
+		// Wertung, Abweichung und Höchstwert rundet Backend\SpielerBeschriftung (label_callback per Attribut)
 		'label' => array
 		(
 			'fields'      => array('memberId', 'klasse', 'wertung', 'abweichung', 'partien', 'hoechstwert'),
