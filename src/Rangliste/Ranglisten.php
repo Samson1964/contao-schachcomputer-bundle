@@ -24,6 +24,16 @@ use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsrechner;
  */
 class Ranglisten
 {
+	/**
+	 * SQL-Bedingung für ein aktives Mitglied (tl_member als m); gilt für alle
+	 * Listen, auch für die Monatsliste in Stichtagsliste.
+	 *
+	 * Der Platzhalter erwartet den Bezugszeitpunkt als Zeichenkette, weil stop
+	 * in Contao ein varchar(10) ist. disable wird mit != '1' verglichen: Das
+	 * passt zu char(1) in Contao 4.13, zu boolean/tinyint in 5.7 und zu SQLite.
+	 */
+	public const AKTIVES_MITGLIED = "m.disable != '1' AND (m.stop = '' OR m.stop > ?)";
+
 	private Connection $connection;
 
 	private Wertungsrechner $rechner;
@@ -135,6 +145,9 @@ class Ranglisten
 	/**
 	 * Liest die Spielerzeilen aktiver Mitglieder einer Klasse.
 	 *
+	 * Aktiv heißt: nicht gesperrt und Mitgliedschaft zum Zeitpunkt nicht
+	 * abgelaufen (AKTIVES_MITGLIED).
+	 *
 	 * @param string            $bedingung  Zusätzliche SQL-Bedingung auf s.*
 	 * @param array<int, mixed> $parameter  Klasse und Zeitpunkt als Zeichenkette
 	 *
@@ -143,10 +156,10 @@ class Ranglisten
 	private function mitglieder(string $bedingung, array $parameter): array
 	{
 		return $this->connection->fetchAllAssociative(
-			"SELECT s.*, m.firstname, m.lastname, m.username
+			'SELECT s.*, m.firstname, m.lastname, m.username
 			 FROM tl_schachcomputer_spieler s
 			 INNER JOIN tl_member m ON m.id = s.memberId
-			 WHERE s.klasse = ? AND m.disable = '' AND (m.stop = '' OR m.stop > ?) AND ".$bedingung,
+			 WHERE s.klasse = ? AND '.self::AKTIVES_MITGLIED.' AND '.$bedingung,
 			$parameter
 		);
 	}

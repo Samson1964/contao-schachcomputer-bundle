@@ -106,8 +106,11 @@ class Stichtagsliste
 	 *
 	 * Existiert sie schon, geschieht nichts; der eindeutige Schlüssel
 	 * (monat, klasse, memberId) schützt zusätzlich vor zwei gleichzeitigen
-	 * Läufen. Aufgenommen werden nur nicht gesperrte Mitglieder mit gesicherter
-	 * Wertung.
+	 * Läufen. Aufgenommen werden nur aktive Mitglieder mit gesicherter
+	 * Wertung – dieselbe Bedingung wie in der aktuellen Rangliste
+	 * (Ranglisten::AKTIVES_MITGLIED). Bezugszeitpunkt für das Ende der
+	 * Mitgliedschaft ist der Stichtag, damit ein später Lauf dieselbe Liste
+	 * ergibt wie ein pünktlicher.
 	 *
 	 * @param string $klasse   Wertungsklasse
 	 * @param int    $stichtag Monatserster aus stichtag()
@@ -124,13 +127,13 @@ class Stichtagsliste
 		}
 
 		$eintraege = $this->connection->fetchAllAssociative(
-			"SELECT s.memberId, s.volatilitaet, v.wertung, v.abweichung, v.zeit, c.anzahl
+			'SELECT s.memberId, s.volatilitaet, v.wertung, v.abweichung, v.zeit, c.anzahl
 			 FROM tl_schachcomputer_verlauf v
 			 INNER JOIN (SELECT pid, MAX(id) AS id, COUNT(*) AS anzahl FROM tl_schachcomputer_verlauf WHERE zeit < ? GROUP BY pid) c ON c.id = v.id
 			 INNER JOIN tl_schachcomputer_spieler s ON s.id = v.pid
 			 INNER JOIN tl_member m ON m.id = s.memberId
-			 WHERE s.klasse = ? AND m.disable = ''",
-			array($stichtag, $klasse)
+			 WHERE s.klasse = ? AND '.Ranglisten::AKTIVES_MITGLIED,
+			array($stichtag, $klasse, (string) $stichtag)
 		);
 
 		$vormonat = array();

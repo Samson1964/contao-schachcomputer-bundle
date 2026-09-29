@@ -117,6 +117,23 @@ class StichtagslisteTest extends TestCase
 	}
 
 	/**
+	 * Wie in der aktuellen Rangliste fehlen Mitglieder, deren Mitgliedschaft
+	 * vor dem Stichtag endete; endet sie danach, stehen sie in der Liste.
+	 */
+	public function testAbgelaufeneMitgliedschaftFehlt(): void
+	{
+		$abgelaufen = Datenbank::mitglied($this->db, 'Otto', 'Alt');
+		$laufend = Datenbank::mitglied($this->db, 'Paula', 'Neu');
+		$this->db->update('tl_member', array('stop' => (string) (self::STICHTAG - self::TAG)), array('id' => $abgelaufen));
+		$this->db->update('tl_member', array('stop' => (string) (self::STICHTAG + 30 * self::TAG)), array('id' => $laufend));
+		$this->verlauf($this->spieler($abgelaufen), self::STICHTAG - 2 * self::TAG, 1800);
+		$this->verlauf($this->spieler($laufend), self::STICHTAG - 2 * self::TAG, 1700);
+
+		$this->assertSame(1, $this->liste->erstellen('blitz', self::STICHTAG));
+		$this->assertSame($laufend, (int) $this->db->fetchOne('SELECT memberId FROM tl_schachcomputer_stichtag'));
+	}
+
+	/**
 	 * Legt eine Spielerzeile im Blitz an.
 	 *
 	 * @param int $memberId ID des Mitglieds

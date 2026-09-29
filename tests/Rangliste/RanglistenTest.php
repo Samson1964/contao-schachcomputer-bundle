@@ -75,6 +75,27 @@ class RanglistenTest extends TestCase
 	}
 
 	/**
+	 * Abgelaufene Mitgliedschaften fehlen in aktueller und ewiger Liste;
+	 * gesperrt ist nur ein Mitglied mit disable '1'.
+	 */
+	public function testNurAktiveMitglieder(): void
+	{
+		$jetzt = self::STICHTAG;
+		$abgelaufen = Datenbank::mitglied($this->db, 'Otto', 'Alt');
+		$laufend = Datenbank::mitglied($this->db, 'Paula', 'Neu');
+		$gesperrt = Datenbank::mitglied($this->db, 'Egon', 'Gesperrt', '1');
+		$this->db->update('tl_member', array('stop' => (string) ($jetzt - self::TAG)), array('id' => $abgelaufen));
+		$this->db->update('tl_member', array('stop' => (string) ($jetzt + self::TAG)), array('id' => $laufend));
+
+		foreach (array($abgelaufen, $laufend, $gesperrt) as $memberId) {
+			$this->spieler($memberId, 1700, 60, 30, $jetzt - self::TAG, 1750.0, $jetzt - self::TAG);
+		}
+
+		$this->assertSame(array($laufend), array_column($this->ranglisten()->aktuell('blitz', $jetzt), 'memberId'));
+		$this->assertSame(array($laufend), array_column($this->ranglisten()->ewig('blitz', $jetzt), 'memberId'));
+	}
+
+	/**
 	 * Die ewige Liste ordnet nach Höchstwert; bei Gleichstand zählt das frühere Datum.
 	 */
 	public function testEwig(): void
