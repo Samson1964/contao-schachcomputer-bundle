@@ -157,6 +157,42 @@ test("beenden() weist eine laufende Suche ab, statt sie hängen zu lassen", asyn
     delete globalThis.Worker
 })
 
+test("eine noch wartende (nicht gestartete) Suche wird nach beenden() abgewiesen, ohne einen neuen Worker zu starten", async () => {
+    const protokoll = {erzeugt: [], beendet: []}
+    let goAngekommen
+    const go = new Promise(erfuellen => { goAngekommen = erfuellen })
+    // Die erste Suche hängt in „go" fest, die zweite wartet in der Kette (this.kette)
+    globalThis.Worker = nachgebildeterWorker(() => goAngekommen(), protokoll)
+
+    const engine = new Engine("stockfish.js")
+    const erste = engine.zug([], GEEICHT, 100)
+    await go
+    const zweite = engine.zug([], GEEICHT, 100)
+    engine.beenden()
+
+    await assert.rejects(erste)
+    await assert.rejects(zweite, /beendet, bevor die Suche beginnen konnte/)
+    assert.equal(protokoll.erzeugt.length, 1, "die wartende Suche prüft die Epoche, statt einen zweiten Worker zu starten")
+    delete globalThis.Worker
+})
+
+test("ein synchroner Fehler bei new Worker() weist ab, statt die Ausführung abzubrechen", async () => {
+    globalThis.Worker = class {
+        constructor() {
+            throw new Error("Worker sind durch die Content-Security-Policy verboten.")
+        }
+    }
+
+    const engine = new Engine("stockfish.js")
+    let versprechen
+    // starten() darf nicht synchron werfen: den Fehler des Konstruktors fängt es ab
+    assert.doesNotThrow(() => { versprechen = engine.starten() })
+    await assert.rejects(versprechen, /Content-Security-Policy/)
+    // this.bereit wurde dabei nie gesetzt: der nächste Versuch startet neu (und scheitert hier ebenso)
+    await assert.rejects(engine.zug([], GEEICHT, 100), /Content-Security-Policy/)
+    delete globalThis.Worker
+})
+
 test("nach einem Fehler startet der nächste Zug einen neuen Worker", async () => {
     const protokoll = {erzeugt: [], beendet: []}
     globalThis.Worker = nachgebildeterWorker(worker => {
