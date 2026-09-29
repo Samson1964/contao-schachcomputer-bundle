@@ -145,6 +145,11 @@ class Wertungsdienst
 	 * Verlaufszeile, bei Gästen die Sitzung. Das Partie-Objekt wird
 	 * entsprechend nachgeführt.
 	 *
+	 * Die Sitzung eines Gastes wird erst nach dem erfolgreichen Commit
+	 * geschrieben: Scheitert etwas davor, rollt die Datenbank zurück
+	 * (verrechnet bleibt 0) – eine schon fortgeschriebene Sitzung würde die
+	 * Partie beim nächsten Versuch ein zweites Mal zählen.
+	 *
 	 * @param Partie                $partie  Die gespeicherte Partie (mit ID)
 	 * @param SessionInterface|null $session Sitzung des Gastes; ohne sie
 	 *                                       bleibt eine Gastpartie liegen und
@@ -168,6 +173,9 @@ class Wertungsdienst
 		if (!$mitglied && null === $session) {
 			return false;
 		}
+
+		// Neue Gaststände; in die Sitzung erst nach dem Commit
+		$gastStaende = null;
 
 		$this->connection->beginTransaction();
 
@@ -197,10 +205,9 @@ class Wertungsdienst
 					'abweichung' => $nachher->wertung->getAbweichung(),
 				));
 			} else {
-				$staende = $session->get(self::SITZUNG, array());
-				$staende = \is_array($staende) ? $staende : array();
-				$staende[$partie->klasse] = $nachher->alsZeile();
-				$session->set(self::SITZUNG, $staende);
+				$gastStaende = $session->get(self::SITZUNG, array());
+				$gastStaende = \is_array($gastStaende) ? $gastStaende : array();
+				$gastStaende[$partie->klasse] = $nachher->alsZeile();
 			}
 
 			$this->connection->update(
@@ -214,6 +221,10 @@ class Wertungsdienst
 			$this->connection->rollBack();
 
 			throw $e;
+		}
+
+		if (null !== $gastStaende) {
+			$session->set(self::SITZUNG, $gastStaende);
 		}
 
 		$partie->verrechnet = true;
@@ -240,10 +251,10 @@ class Wertungsdienst
 		}
 
 		$zeilen = $this->connection->fetchAllAssociative(
-			"SELECT * FROM tl_schachcomputer_partie
-			 WHERE memberId=0 AND gast=? AND gewertet=1 AND status='beendet' AND verrechnet=0
-			 ORDER BY ende, id",
-			array($gast)
+			'SELECT * FROM tl_schachcomputer_partie
+			 WHERE memberId=0 AND gast=? AND gewertet=1 AND status=? AND verrechnet=0
+			 ORDER BY ende, id',
+			array($gast, Partie::BEENDET)
 		);
 
 		$anzahl = 0;

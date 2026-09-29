@@ -110,6 +110,41 @@ class WertungsdienstTest extends TestCase
 	}
 
 	/**
+	 * Scheitert die Verrechnung eines Gastes nach dem Rechnen, bleibt die
+	 * Sitzung unverändert; der nächste Versuch verrechnet genau einmal.
+	 */
+	public function testGastSitzungErstNachDemCommit(): void
+	{
+		$sitzung = new Session(new MockArraySessionStorage());
+		$partie = $this->beendetePartie(0, 'abc', Partie::SIEG_WEISS);
+
+		// Das abschließende UPDATE (wertungVorher/wertungNachher) scheitert,
+		// das bedingte UPDATE auf verrechnet davor nicht
+		$this->db->executeStatement(
+			"CREATE TRIGGER testfehler BEFORE UPDATE OF wertungNachher ON tl_schachcomputer_partie
+			 BEGIN SELECT RAISE(ABORT, 'Testfehler beim abschließenden UPDATE'); END"
+		);
+
+		try {
+			$this->dienst->verrechnen($partie, $sitzung);
+			$this->fail('Erwartet: Fehler beim abschließenden UPDATE');
+		} catch (\Throwable $e) {
+			$this->assertStringContainsString('Testfehler', $e->getMessage());
+		}
+
+		$this->assertNull($sitzung->get(Wertungsdienst::SITZUNG));
+		$this->assertFalse($partie->verrechnet);
+		$this->assertSame(0, (int) $this->db->fetchOne('SELECT verrechnet FROM tl_schachcomputer_partie WHERE id=?', array($partie->id)));
+
+		$this->db->executeStatement('DROP TRIGGER testfehler');
+
+		$this->assertTrue($this->dienst->verrechnen($partie, $sitzung));
+		$this->assertFalse($this->dienst->verrechnen(clone $partie, $sitzung));
+		$this->assertSame(0, $this->dienst->gastNachtragen('abc', $sitzung));
+		$this->assertSame(1, $this->dienst->stand(null, $sitzung, 'blitz')->partien);
+	}
+
+	/**
 	 * Vom Cron beendete Gastpartien werden beim nächsten Aufruf nachgetragen.
 	 */
 	public function testGastNachtragen(): void
