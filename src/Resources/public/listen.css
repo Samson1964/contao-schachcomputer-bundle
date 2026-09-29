@@ -34,6 +34,21 @@
 	border-bottom: 0;
 }
 
+/* Hinweis (nur für Mitglieder) und leere Liste; die Eigenschaften greifen
+   auch hier, wenn ein Theme sie etwa auf :root setzt */
+.schachcomputer-hinweis,
+.schachcomputer-leer {
+	margin: 0 0 1rem;
+	padding: .75rem 1rem;
+	border-left: 3px solid var(--schachcomputer-rand, #c8c8c8);
+	background: var(--schachcomputer-hervorhebung, #e8f1f9);
+}
+
+/* Link „Alle Partien als PGN herunterladen" unter der Tabelle */
+.schachcomputer-alle {
+	margin: 1rem 0 0;
+}
+
 .schachcomputer-monatswahl {
 	display: flex;
 	flex-wrap: wrap;
@@ -53,6 +68,11 @@
 	fill: none;
 	stroke: #1f6fb2;
 	stroke-width: 2;
+}
+
+/* Nach nur einer Partie ist die Kurve ein einzelner Punkt: gefüllt, nicht als Ring */
+.schachcomputer-verlauf circle.kurve {
+	fill: #1f6fb2;
 }
 
 .schachcomputer-verlauf .achse {

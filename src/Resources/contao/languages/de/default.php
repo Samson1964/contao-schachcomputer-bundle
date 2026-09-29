@@ -9,7 +9,7 @@ declare(strict_types=1);
  * @license LGPL-3.0-or-later
  */
 
-// Modul „Spielen": Texte für Template und spielen.js (%s wird ersetzt)
+// Modul „Spielen“: Texte für Template und spielen.js (%s wird ersetzt)
 $GLOBALS['TL_LANG']['MSC']['schachcomputer'] = array
 (
 	'brett'             => 'Schachbrett',
@@ -52,7 +52,7 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer'] = array
 	'pgnKopiert'        => 'Die PGN liegt in der Zwischenablage.',
 	'pgnNichtKopiert'   => 'Die PGN lässt sich hier nicht in die Zwischenablage kopieren; das geht nur über eine sichere Verbindung (https).',
 	'neuePartie'        => 'Neue Partie',
-	'uebungGespeichert' => 'Die Partie steht jetzt unter „Eigene Partien".',
+	'uebungGespeichert' => 'Die Partie steht jetzt unter „Eigene Partien“.',
 	'klassen'           => array
 	(
 		'blitz'   => 'Blitz',
@@ -75,7 +75,7 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer'] = array
 	),
 );
 
-// Modul „Rangliste" (%s wird ersetzt)
+// Modul „Rangliste“ (%s wird ersetzt)
 $GLOBALS['TL_LANG']['MSC']['schachcomputer_rangliste'] = array
 (
 	'platz'        => 'Platz',
@@ -92,7 +92,7 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer_rangliste'] = array
 	'stand'        => 'Stand am 1. %s',
 );
 
-// Modul „Eigene Partien"
+// Modul „Eigene Partien“
 $GLOBALS['TL_LANG']['MSC']['schachcomputer_partien'] = array
 (
 	'nurMitglieder' => 'Melde dich an, um deine Partien zu sehen.',
@@ -114,13 +114,14 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer_partien'] = array
 	'allePgn'       => 'Alle Partien als PGN herunterladen',
 );
 
-// Modul „Wertungsverlauf" (%s wird ersetzt: Klasse, Wertung, Partien)
+// Modul „Wertungsverlauf“ (%s wird ersetzt: Klasse, Wertung, Partien; beschriftungEins bei genau einer Partie)
 $GLOBALS['TL_LANG']['MSC']['schachcomputer_verlauf'] = array
 (
-	'nurMitglieder' => 'Melde dich an, um deinen Wertungsverlauf zu sehen.',
-	'leer'          => 'Du hast noch keine gewertete Partie beendet.',
-	'beschriftung'  => '%s: %s nach %s Partien',
-	'kurve'         => 'Wertungsverlauf %s',
+	'nurMitglieder'    => 'Melde dich an, um deinen Wertungsverlauf zu sehen.',
+	'leer'             => 'Du hast noch keine gewertete Partie beendet.',
+	'beschriftung'     => '%s: %s nach %s Partien',
+	'beschriftungEins' => '%s: %s nach %s Partie',
+	'kurve'            => 'Wertungsverlauf %s',
 );
 
 // Backend-Statistik (do=schachcomputer_partien&key=statistik; %s wird ersetzt)

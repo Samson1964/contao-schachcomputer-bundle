@@ -27,6 +27,8 @@ class SprachdateienTest extends TestCase
 	 * Deutsch und Englisch haben dieselben Schlüssel.
 	 *
 	 * @dataProvider sprachdateien
+	 *
+	 * @param string $datei Name der Sprachdatei ohne Endung, etwa „default“
 	 */
 	public function testDeutschUndEnglischHabenDieselbenSchluessel(string $datei): void
 	{

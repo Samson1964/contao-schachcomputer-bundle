@@ -33,6 +33,12 @@ class VerlaufModule extends SchachcomputerModul
 
 	/**
 	 * Baut je Klasse eine Kurve mit Beschriftung.
+	 *
+	 * Die Beschriftung nennt Klasse, letzte Wertung (vorläufige mit „?")
+	 * und die Zahl der Partien, bei genau einer Partie in der Einzahl
+	 * (Sprachschlüssel beschriftungEins). Seiteneffekte: lädt die
+	 * Sprachdatei default und bindet listen.css ein; für Gäste bleibt es
+	 * beim Hinweis zur Anmeldung.
 	 */
 	protected function compile(): void
 	{
@@ -63,11 +69,14 @@ class VerlaufModule extends SchachcomputerModul
 			}
 
 			$name = $klassenNamen[$klasse] ?? $klasse;
-			$letzter = $verlauf[\count($verlauf) - 1];
+			$anzahl = \count($verlauf);
+			$letzter = $verlauf[$anzahl - 1];
 			$wertung = (int) round($letzter['wertung']).(Wertungsrechner::vorlaeufig($letzter['abweichung']) ? '?' : '');
+			// „nach 1 Partie", sonst „nach 3 Partien"
+			$muster = 1 === $anzahl ? ($texte['beschriftungEins'] ?? '%s: %s (%s)') : ($texte['beschriftung'] ?? '%s: %s (%s)');
 
 			$kurven[] = array(
-				'beschriftung' => sprintf($texte['beschriftung'] ?? '%s: %s (%s)', $name, $wertung, \count($verlauf)),
+				'beschriftung' => sprintf($muster, $name, $wertung, $anzahl),
 				'svg'          => Kurve::svg($verlauf, sprintf($texte['kurve'] ?? '%s', $name)),
 			);
 		}

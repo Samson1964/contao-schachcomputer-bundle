@@ -26,6 +26,8 @@ class DatenbankSchemaTest extends TestCase
 	 * Jede Tabelle hat in DCA und Testdatenbank dieselben Spalten.
 	 *
 	 * @dataProvider tabellen
+	 *
+	 * @param string $tabelle Name der Tabelle, etwa „tl_schachcomputer_partie“
 	 */
 	public function testSpaltenStimmenUeberein(string $tabelle): void
 	{

@@ -114,13 +114,14 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer_partien'] = array
 	'allePgn'       => 'Download all games as PGN',
 );
 
-// Module "rating history" (%s is replaced: category, rating, games)
+// Module "rating history" (%s is replaced: category, rating, games; beschriftungEins for exactly one game)
 $GLOBALS['TL_LANG']['MSC']['schachcomputer_verlauf'] = array
 (
-	'nurMitglieder' => 'Log in to see your rating history.',
-	'leer'          => 'You have not finished a rated game yet.',
-	'beschriftung'  => '%s: %s after %s games',
-	'kurve'         => 'Rating history %s',
+	'nurMitglieder'    => 'Log in to see your rating history.',
+	'leer'             => 'You have not finished a rated game yet.',
+	'beschriftung'     => '%s: %s after %s games',
+	'beschriftungEins' => '%s: %s after %s game',
+	'kurve'            => 'Rating history %s',
 );
 
 // Back end statistics (do=schachcomputer_partien&key=statistik; %s is replaced)
