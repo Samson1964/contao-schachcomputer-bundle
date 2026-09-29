@@ -88,3 +88,25 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer_rangliste'] = array
 	'anzeigen'     => 'Anzeigen',
 	'stand'        => 'Stand am 1. %s',
 );
+
+// Modul „Eigene Partien"
+$GLOBALS['TL_LANG']['MSC']['schachcomputer_partien'] = array
+(
+	'nurMitglieder' => 'Melde dich an, um deine Partien zu sehen.',
+	'leer'          => 'Du hast noch keine Partie beendet.',
+	'datum'         => 'Datum',
+	'art'           => 'Bedenkzeit',
+	'uebung'        => 'Übung',
+	'farbe'         => 'Farbe',
+	'weiss'         => 'Weiß',
+	'schwarz'       => 'Schwarz',
+	'stufe'         => 'Stufe',
+	'ergebnis'      => 'Ergebnis',
+	'gewonnen'      => 'Gewonnen',
+	'verloren'      => 'Verloren',
+	'remis'         => 'Remis',
+	'offen'         => 'Offen',
+	'wertung'       => 'Wertung',
+	'pgn'           => 'PGN',
+	'allePgn'       => 'Alle Partien als PGN herunterladen',
+);

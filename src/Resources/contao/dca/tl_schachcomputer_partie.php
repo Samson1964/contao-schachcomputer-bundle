@@ -58,6 +58,12 @@ $GLOBALS['TL_DCA']['tl_schachcomputer_partie'] = array
 		),
 		'operations' => array
 		(
+			'pgn' => array
+			(
+				'label' => &$GLOBALS['TL_LANG']['tl_schachcomputer_partie']['pgn'],
+				'href'  => 'key=pgn',
+				'icon'  => 'theme_export.svg',
+			),
 			'delete' => array
 			(
 				'label'      => &$GLOBALS['TL_LANG']['tl_schachcomputer_partie']['delete'],

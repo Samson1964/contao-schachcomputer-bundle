@@ -25,6 +25,9 @@ $GLOBALS['TL_DCA']['tl_module']['palettes']['schachcomputer_spielen']
 $GLOBALS['TL_DCA']['tl_module']['palettes']['schachcomputer_rangliste']
 	= '{title_legend},name,headline,type;{schachcomputer_legend},schachcomputerModus,schachcomputerKlasse,schachcomputerAnzahl;{template_legend:hide},customTpl;{protected_legend:hide},protected;{expert_legend:hide},cssID';
 
+$GLOBALS['TL_DCA']['tl_module']['palettes']['schachcomputer_partien']
+	= '{title_legend},name,headline,type;{schachcomputer_legend},schachcomputerAnzahl;{template_legend:hide},customTpl;{protected_legend:hide},protected;{expert_legend:hide},cssID';
+
 $GLOBALS['TL_DCA']['tl_module']['fields']['schachcomputerModus'] = array
 (
 	'exclude'   => true,

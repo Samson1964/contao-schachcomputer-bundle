@@ -64,3 +64,5 @@ $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['gruende'] = array
 // Operationen
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['delete'] = array('Löschen', 'Partie ID %s löschen');
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['show'] = array('Details', 'Details der Partie ID %s anzeigen');
+$GLOBALS['TL_LANG']['tl_schachcomputer_partie']['pgn'] = array('PGN', 'Partie ID %s als PGN herunterladen');
+$GLOBALS['TL_LANG']['tl_schachcomputer_partie']['nichtGefunden'] = 'Partie %d nicht gefunden.';

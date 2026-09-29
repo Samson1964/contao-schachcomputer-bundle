@@ -48,3 +48,20 @@ schachcomputer_uebung:
     defaults:
         _scope: frontend
         _token_check: false
+
+# PGN-Download der eigenen Partien (nur GET, nur für angemeldete Mitglieder)
+schachcomputer_pgn:
+    path: /_schachcomputer/pgn/{id}
+    controller: Schachbulle\ContaoSchachcomputerBundle\Controller\PgnController::einzeln
+    methods: [GET]
+    requirements:
+        id: '\d+'
+    defaults:
+        _scope: frontend
+
+schachcomputer_pgn_alle:
+    path: /_schachcomputer/pgn
+    controller: Schachbulle\ContaoSchachcomputerBundle\Controller\PgnController::alle
+    methods: [GET]
+    defaults:
+        _scope: frontend

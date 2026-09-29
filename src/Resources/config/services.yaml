@@ -34,3 +34,12 @@ services:
     Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController:
         public: true
         tags: ['controller.service_arguments']
+
+    Schachbulle\ContaoSchachcomputerBundle\Controller\PgnController:
+        public: true
+        tags: ['controller.service_arguments']
+
+    # Öffentlich, weil Contao den key-Callback aus $GLOBALS['BE_MOD'] über
+    # System::importStatic() aus dem Container holt
+    Schachbulle\ContaoSchachcomputerBundle\Backend\PartiePgn:
+        public: true

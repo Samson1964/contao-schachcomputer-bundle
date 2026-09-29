@@ -1,0 +1,42 @@
+<?php $this->extend('block_unsearchable'); ?>
+
+<?php $this->block('content'); ?>
+
+  <?php if ($this->hinweis): ?>
+    <p class="schachcomputer-hinweis"><?= $this->hinweis ?></p>
+  <?php elseif (empty($this->zeilen)): ?>
+    <p class="schachcomputer-leer"><?= $this->texte['leer'] ?></p>
+  <?php else: ?>
+    <table class="schachcomputer-liste">
+      <thead>
+        <tr>
+          <th scope="col"><?= $this->texte['datum'] ?></th>
+          <th scope="col"><?= $this->texte['art'] ?></th>
+          <th scope="col"><?= $this->texte['farbe'] ?></th>
+          <th scope="col"><?= $this->texte['stufe'] ?></th>
+          <th scope="col"><?= $this->texte['ergebnis'] ?></th>
+          <th scope="col"><?= $this->texte['wertung'] ?></th>
+          <th scope="col"><span class="invisible"><?= $this->texte['pgn'] ?></span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($this->zeilen as $zeile): ?>
+          <tr>
+            <td><?= $zeile['datum'] ?></td>
+            <td><?= $zeile['art'] ?></td>
+            <td><?= $zeile['farbe'] ?></td>
+            <td><?= $zeile['stufe'] ?></td>
+            <td><?= $zeile['ergebnis'] ?></td>
+            <td><?= $zeile['wertung'] ?></td>
+            <td><a href="<?= $zeile['pgn'] ?>" download><?= $this->texte['pgn'] ?></a></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+
+    <?= $this->pagination ?>
+
+    <p class="schachcomputer-alle"><a href="<?= $this->allePgn ?>" download><?= $this->texte['allePgn'] ?></a></p>
+  <?php endif; ?>
+
+<?php $this->endblock(); ?>
