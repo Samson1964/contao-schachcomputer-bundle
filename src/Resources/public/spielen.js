@@ -140,13 +140,7 @@ class Schachcomputer {
         this.feld.knoepfe.pgn.addEventListener("click", () => this.pgnKopieren())
         this.feld.knoepfe.neu.addEventListener("click", () => this.startZeigen())
         window.addEventListener("pagehide", () => this.seiteVerlassen())
-        window.addEventListener("pageshow", ereignis => {
-            // Aus dem bfcache zurück: Worker und Timer sind weg, der Server
-            // kann die Partie inzwischen weitergeführt oder beendet haben
-            if (ereignis.persisted) {
-                this.standLaden()
-            }
-        })
+        window.addEventListener("pageshow", ereignis => this.seiteZurueck(ereignis))
 
         this.auswahlFuellen()
         this.standLaden(true)
@@ -179,6 +173,28 @@ class Schachcomputer {
         clearTimeout(this.fristTimer)
         this.uhr.anhalten()
         this.engine.beenden()
+    }
+
+    /**
+     * Macht weiter, wenn die Seite aus dem bfcache zurückkommt.
+     *
+     * Worker, Uhr und Frist hat seiteVerlassen() angehalten, und der Server
+     * kann die gewertete Partie inzwischen weitergeführt oder beendet haben:
+     * Deshalb wird der Stand neu geladen. Eine Übungspartie gibt es nur im
+     * Browser; sie wird fortgesetzt statt verworfen (war die Engine am Zug,
+     * sucht sie neu).
+     *
+     * @param {PageTransitionEvent} ereignis Das pageshow-Ereignis
+     */
+    seiteZurueck(ereignis) {
+        if (!ereignis.persisted) {
+            return
+        }
+        if (this.modus === "uebung") {
+            this.weiter()
+            return
+        }
+        this.standLaden()
     }
 
     /**
