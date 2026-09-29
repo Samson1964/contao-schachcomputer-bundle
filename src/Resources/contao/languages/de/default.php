@@ -110,3 +110,12 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer_partien'] = array
 	'pgn'           => 'PGN',
 	'allePgn'       => 'Alle Partien als PGN herunterladen',
 );
+
+// Modul „Wertungsverlauf" (%s wird ersetzt: Klasse, Wertung, Partien)
+$GLOBALS['TL_LANG']['MSC']['schachcomputer_verlauf'] = array
+(
+	'nurMitglieder' => 'Melde dich an, um deinen Wertungsverlauf zu sehen.',
+	'leer'          => 'Du hast noch keine gewertete Partie beendet.',
+	'beschriftung'  => '%s: %s nach %s Partien',
+	'kurve'         => 'Wertungsverlauf %s',
+);

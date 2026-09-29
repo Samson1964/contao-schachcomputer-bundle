@@ -1,0 +1,18 @@
+<?php $this->extend('block_unsearchable'); ?>
+
+<?php $this->block('content'); ?>
+
+  <?php if ($this->hinweis): ?>
+    <p class="schachcomputer-hinweis"><?= $this->hinweis ?></p>
+  <?php elseif (empty($this->kurven)): ?>
+    <p class="schachcomputer-leer"><?= $this->texte['leer'] ?></p>
+  <?php else: ?>
+    <?php foreach ($this->kurven as $kurve): ?>
+      <figure class="schachcomputer-verlauf">
+        <figcaption><?= $kurve['beschriftung'] ?></figcaption>
+        <?= $kurve['svg'] ?>
+      </figure>
+    <?php endforeach; ?>
+  <?php endif; ?>
+
+<?php $this->endblock(); ?>

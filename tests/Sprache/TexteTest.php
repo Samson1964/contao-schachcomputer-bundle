@@ -58,6 +58,8 @@ class TexteTest extends TestCase
 			'Modul Rangliste'    => array('../Module/RanglisteModule.php', "/texte\\['(\\w+)'\\]/", 'schachcomputer_rangliste'),
 			'Template Partien'   => array('contao/templates/mod_schachcomputer_partien.html5', "/texte\\['(\\w+)'\\]/", 'schachcomputer_partien'),
 			'Modul Partien'      => array('../Module/PartienModule.php', "/texte\\['(\\w+)'\\]/", 'schachcomputer_partien'),
+			'Template Verlauf'   => array('contao/templates/mod_schachcomputer_verlauf.html5', "/texte\\['(\\w+)'\\]/", 'schachcomputer_verlauf'),
+			'Modul Verlauf'      => array('../Module/VerlaufModule.php', "/texte\\['(\\w+)'\\]/", 'schachcomputer_verlauf'),
 		);
 	}
 }

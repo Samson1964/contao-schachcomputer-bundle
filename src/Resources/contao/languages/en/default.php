@@ -110,3 +110,12 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer_partien'] = array
 	'pgn'           => 'PGN',
 	'allePgn'       => 'Download all games as PGN',
 );
+
+// Module "rating history" (%s is replaced: category, rating, games)
+$GLOBALS['TL_LANG']['MSC']['schachcomputer_verlauf'] = array
+(
+	'nurMitglieder' => 'Log in to see your rating history.',
+	'leer'          => 'You have not finished a rated game yet.',
+	'beschriftung'  => '%s: %s after %s games',
+	'kurve'         => 'Rating history %s',
+);

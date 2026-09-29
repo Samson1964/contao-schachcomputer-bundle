@@ -13,6 +13,7 @@ use Schachbulle\ContaoSchachcomputerBundle\Backend\PartiePgn;
 use Schachbulle\ContaoSchachcomputerBundle\Module\PartienModule;
 use Schachbulle\ContaoSchachcomputerBundle\Module\RanglisteModule;
 use Schachbulle\ContaoSchachcomputerBundle\Module\SpielenModule;
+use Schachbulle\ContaoSchachcomputerBundle\Module\VerlaufModule;
 
 // Eigene Gruppe im Backend-Menü; der Schlüssel landet als CSS-Klasse im
 // Markup, der Anzeigename kommt aus TL_LANG['MOD']['schachcomputer']
@@ -40,4 +41,5 @@ $GLOBALS['FE_MOD']['schachcomputer'] = array
 	'schachcomputer_spielen'   => SpielenModule::class,
 	'schachcomputer_rangliste' => RanglisteModule::class,
 	'schachcomputer_partien'   => PartienModule::class,
+	'schachcomputer_verlauf'   => VerlaufModule::class,
 );
