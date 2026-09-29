@@ -127,6 +127,33 @@ class PartiedienstTest extends TestCase
 	}
 
 	/**
+	 * eigenePartie() gibt eine existierende fremde Partie nicht heraus –
+	 * weder an einen anderen Gast noch an ein anderes Mitglied – und prüft
+	 * sie dabei auch nicht (keine Fristprüfung, kein Speichern).
+	 */
+	public function testEigenePartieNurFuerBesitzer(): void
+	{
+		$gastPartie = $this->dienst->starten(Spieler::gast('abc'), null, $this->blitz, 1500, 'w', self::T0);
+		$mitgliedPartie = $this->dienst->starten(Spieler::mitglied(7), null, $this->blitz, 1500, 'w', self::T0);
+		$spaet = self::T0 + 120000;
+
+		foreach (array(Spieler::gast('xyz'), Spieler::mitglied(7), Spieler::mitglied(8)) as $fremder) {
+			$this->assertNull($this->dienst->eigenePartie($fremder, null, $gastPartie->id, $spaet));
+		}
+
+		foreach (array(Spieler::gast('abc'), Spieler::gast('xyz'), Spieler::mitglied(8)) as $fremder) {
+			$this->assertNull($this->dienst->eigenePartie($fremder, null, $mitgliedPartie->id, $spaet));
+		}
+
+		// Die Frist für den ersten Zug ist abgelaufen, aber nur der Besitzer löst die Prüfung aus
+		$this->assertSame(Partie::LAEUFT, $this->dienst->laden($gastPartie->id)->status);
+		$this->assertSame(Partie::LAEUFT, $this->dienst->laden($mitgliedPartie->id)->status);
+
+		$this->assertSame($mitgliedPartie->id, $this->dienst->eigenePartie(Spieler::mitglied(7), null, $mitgliedPartie->id, $spaet)->id);
+		$this->assertSame($gastPartie->id, $this->dienst->eigenePartie(Spieler::gast('abc'), null, $gastPartie->id, $spaet)->id);
+	}
+
+	/**
 	 * Eine ganze Partie bis zum Matt wird gespeichert und verrechnet.
 	 */
 	public function testPartieBisZumMatt(): void

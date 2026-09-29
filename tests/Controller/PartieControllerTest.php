@@ -105,6 +105,31 @@ class PartieControllerTest extends TestCase
 	}
 
 	/**
+	 * GET stand?partie=ID liefert eine existierende fremde Partie nicht aus,
+	 * weder an einen Gast mit anderer Sitzung noch an ein anderes Mitglied.
+	 */
+	public function testStandZeigtKeineFremdePartie(): void
+	{
+		$this->anmelden(7);
+		$fremd = $this->daten($this->controller()->start($this->post(array('bedenkzeit' => $this->blitz, 'stufe' => 1500, 'farbe' => 'w'))))['partie']['id'];
+		$this->assertSame($fremd, $this->daten($this->controller()->stand($this->get($fremd)))['partie']['id']);
+
+		// Anderes Mitglied
+		$this->anmelden(8);
+		$this->assertNull($this->daten($this->controller()->stand($this->get($fremd)))['partie']);
+
+		// Gast mit eigener, neuer Sitzung
+		$this->tokenStorage->setToken(null);
+		$this->sitzung = new Session(new MockArraySessionStorage());
+		$this->assertNull($this->daten($this->controller()->stand($this->get($fremd)))['partie']);
+
+		// Ein Gast sieht auch die Partie eines anderen Gastes nicht
+		$gastPartie = $this->daten($this->controller()->start($this->post(array('bedenkzeit' => $this->blitz, 'stufe' => 1500, 'farbe' => 'w'))))['partie']['id'];
+		$this->sitzung = new Session(new MockArraySessionStorage());
+		$this->assertNull($this->daten($this->controller()->stand($this->get($gastPartie)))['partie']);
+	}
+
+	/**
 	 * Regelwidrige und veraltete Züge bekommen 422 bzw. 409.
 	 */
 	public function testFehlerstatus(): void
