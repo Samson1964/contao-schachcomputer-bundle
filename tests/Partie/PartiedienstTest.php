@@ -13,6 +13,7 @@ namespace Schachbulle\ContaoSchachcomputerBundle\Tests\Partie;
 
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\AbstractLogger;
 use Psr\Log\NullLogger;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partie;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst;
@@ -24,6 +25,7 @@ use Schachbulle\ContaoSchachcomputerBundle\Wertung\Glicko2;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsdienst;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsrechner;
 use Symfony\Component\HttpFoundation\Session\Session;
+use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
 
 /**
@@ -45,7 +47,7 @@ class PartiedienstTest extends TestCase
 	protected function setUp(): void
 	{
 		$this->db = Datenbank::verbindung();
-		$this->dienst = new Partiedienst($this->db, new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2())), new Statistik($this->db, new NullLogger()));
+		$this->dienst = new Partiedienst($this->db, new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2())), new Statistik($this->db, new NullLogger()), new NullLogger());
 		$this->blitz = Datenbank::bedenkzeit($this->db, 'blitz', 3, 2);
 	}
 
@@ -205,6 +207,88 @@ class PartiedienstTest extends TestCase
 		$this->assertSame(1, $this->dienst->allePruefen(self::T0 + 70000));
 		$this->assertSame(Partie::ABGEBROCHEN, $this->dienst->laden($alt->id)->status);
 		$this->assertSame(Partie::LAEUFT, $this->dienst->laden($neu->id)->status);
+	}
+
+	/**
+	 * Scheitert die Verrechnung einer Mitgliederpartie, hält das die übrigen
+	 * nicht auf; der nächste Lauf holt sie nach, und zwar genau einmal.
+	 */
+	public function testAllePruefenHoltGescheiterteVerrechnungNach(): void
+	{
+		$logger = new class() extends AbstractLogger {
+			/**
+			 * @var array<int, string>
+			 */
+			public array $meldungen = array();
+
+			/**
+			 * Merkt sich jede Meldung.
+			 *
+			 * @param mixed                $level   Stufe
+			 * @param string|\Stringable   $message Meldung
+			 * @param array<string, mixed> $context Zusatzangaben
+			 */
+			public function log($level, $message, array $context = array()): void
+			{
+				$this->meldungen[] = $level.': '.$message;
+			}
+		};
+
+		// Wirft für die gewählten Partien beim ersten Versuch, wie bei einem Deadlock
+		$wertungsdienst = new class($this->db, new Wertungsrechner(new Glicko2())) extends Wertungsdienst {
+			/**
+			 * @var array<int, int> Partie-ID => verbleibende Fehlschläge
+			 */
+			public array $scheitern = array();
+
+			/**
+			 * Wirft, solange für die Partie Fehlschläge übrig sind, sonst wie gewohnt.
+			 *
+			 * @param Partie                $partie  Die Partie
+			 * @param SessionInterface|null $session Sitzung des Gastes
+			 *
+			 * @return bool Wie Wertungsdienst::verrechnen()
+			 */
+			public function verrechnen(Partie $partie, ?SessionInterface $session): bool
+			{
+				if (($this->scheitern[$partie->id] ?? 0) > 0) {
+					--$this->scheitern[$partie->id];
+
+					throw new \RuntimeException('Deadlock beim Verrechnen');
+				}
+
+				return parent::verrechnen($partie, $session);
+			}
+		};
+
+		$dienst = new Partiedienst($this->db, $wertungsdienst, new Statistik($this->db, new NullLogger()), $logger);
+		$erste = $dienst->starten(Spieler::mitglied(7), null, $this->blitz, 1500, 'w', self::T0);
+		$zweite = $dienst->starten(Spieler::mitglied(8), null, $this->blitz, 1500, 'w', self::T0);
+		$dienst->ziehen(Spieler::mitglied(7), null, $erste->id, 0, 'e2e4', null, self::T0 + 1000);
+		$dienst->ziehen(Spieler::mitglied(8), null, $zweite->id, 0, 'e2e4', null, self::T0 + 1000);
+		$wertungsdienst->scheitern[$erste->id] = 1;
+
+		// Erster Lauf: beide gelten als verlassen, die erste scheitert beim Verrechnen
+		$dienst->allePruefen(self::T0 + 70000);
+
+		$this->assertSame(Partie::BEENDET, $dienst->laden($erste->id)->status);
+		$this->assertFalse($dienst->laden($erste->id)->verrechnet);
+		$this->assertTrue($dienst->laden($zweite->id)->verrechnet);
+		$this->assertCount(1, $logger->meldungen);
+		$this->assertStringStartsWith('warning: Schachcomputer:', $logger->meldungen[0]);
+
+		// Zweiter Lauf: die erste wird nachgeholt, keine doppelt verrechnet
+		$dienst->allePruefen(self::T0 + 130000);
+		$dienst->allePruefen(self::T0 + 190000);
+
+		$this->assertTrue($dienst->laden($erste->id)->verrechnet);
+
+		foreach (array(7, 8) as $memberId) {
+			$this->assertSame(1, (int) $this->db->fetchOne('SELECT partien FROM tl_schachcomputer_spieler WHERE memberId=?', array($memberId)));
+		}
+
+		$this->assertSame(2, (int) $this->db->fetchOne('SELECT COUNT(*) FROM tl_schachcomputer_verlauf'));
+		$this->assertCount(1, $logger->meldungen);
 	}
 
 	/**

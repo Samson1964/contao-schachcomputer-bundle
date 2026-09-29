@@ -181,7 +181,7 @@ class PartieControllerTest extends TestCase
 		$wertungsdienst = new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2()));
 		$statistik = new Statistik($this->db, new NullLogger());
 
-		return new class(new Partiedienst($this->db, $wertungsdienst, $statistik), $wertungsdienst, $this->tokenStorage, $statistik) extends PartieController {
+		return new class(new Partiedienst($this->db, $wertungsdienst, $statistik, new NullLogger()), $wertungsdienst, $this->tokenStorage, $statistik) extends PartieController {
 			/**
 			 * Feste Zeit statt der Systemuhr.
 			 *

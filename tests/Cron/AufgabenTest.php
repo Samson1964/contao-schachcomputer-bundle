@@ -45,7 +45,7 @@ class AufgabenTest extends TestCase
 	protected function setUp(): void
 	{
 		$this->db = Datenbank::verbindung();
-		$this->partiedienst = new Partiedienst($this->db, new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2())), new Statistik($this->db, new NullLogger()));
+		$this->partiedienst = new Partiedienst($this->db, new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2())), new Statistik($this->db, new NullLogger()), new NullLogger());
 	}
 
 	/**

@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace Schachbulle\ContaoSchachcomputerBundle\Partie;
 
 use Doctrine\DBAL\Connection;
+use Psr\Log\LoggerInterface;
 use Schachbulle\ContaoSchachcomputerBundle\Statistik\Statistik;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Klassen;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsdienst;
@@ -34,18 +35,23 @@ class Partiedienst
 
 	private Statistik $statistik;
 
+	private LoggerInterface $logger;
+
 	/**
 	 * Übernimmt die benötigten Dienste.
 	 *
-	 * @param Connection     $connection     Die Datenbankverbindung von Contao
-	 * @param Wertungsdienst $wertungsdienst Verrechnet beendete Partien
-	 * @param Statistik      $statistik      Zählt Starts, Ergebnisse und Übungen
+	 * @param Connection      $connection     Die Datenbankverbindung von Contao
+	 * @param Wertungsdienst  $wertungsdienst Verrechnet beendete Partien
+	 * @param Statistik       $statistik      Zählt Starts, Ergebnisse und Übungen
+	 * @param LoggerInterface $logger         Nimmt Fehler des Cronjobs auf, die
+	 *                                        einzelne Partien betreffen
 	 */
-	public function __construct(Connection $connection, Wertungsdienst $wertungsdienst, Statistik $statistik)
+	public function __construct(Connection $connection, Wertungsdienst $wertungsdienst, Statistik $statistik, LoggerInterface $logger)
 	{
 		$this->connection = $connection;
 		$this->wertungsdienst = $wertungsdienst;
 		$this->statistik = $statistik;
+		$this->logger = $logger;
 	}
 
 	/**
@@ -347,20 +353,50 @@ class Partiedienst
 	}
 
 	/**
-	 * Prüft alle laufenden Partien; für den minütlichen Cronjob.
+	 * Prüft alle laufenden Partien und holt gescheiterte Verrechnungen nach;
+	 * für den minütlichen Cronjob.
+	 *
+	 * Eine Partie wird ohne Transaktion auf „beendet" gespeichert, die
+	 * Verrechnung folgt in eigener Transaktion. Scheitert diese (Deadlock,
+	 * Lock-Timeout, Verbindungsabbruch), bleibt verrechnet auf 0. Für Gäste
+	 * holt das gastNachtragen() beim nächsten Aufruf nach; für Mitglieder
+	 * geschieht es hier, zuerst und in der Reihenfolge des Endes, damit die
+	 * Wertung die Partien möglichst in ihrer Abfolge verrechnet. Das bedingte
+	 * UPDATE im Wertungsdienst verhindert eine doppelte Verrechnung.
+	 *
+	 * Jede Partie läuft in einem eigenen try/catch: Ein Fehler wird als
+	 * Warnung protokolliert und hält die übrigen Partien nicht auf.
 	 *
 	 * @param int $jetztMs Aktueller Zeitpunkt
 	 *
-	 * @return int Zahl der dabei beendeten oder abgebrochenen Partien
+	 * @return int Zahl der dabei beendeten oder abgebrochenen Partien; eine
+	 *             Partie, bei der ein Fehler auftrat, zählt nicht mit
 	 */
 	public function allePruefen(int $jetztMs): int
 	{
-		$zeilen = $this->connection->fetchAllAssociative("SELECT * FROM tl_schachcomputer_partie WHERE status='laeuft'");
+		$offen = $this->connection->fetchAllAssociative(
+			'SELECT * FROM tl_schachcomputer_partie WHERE memberId>0 AND gewertet=1 AND status=? AND verrechnet=0 ORDER BY ende, id',
+			array(Partie::BEENDET)
+		);
+
+		foreach ($offen as $zeile) {
+			try {
+				$this->wertungsdienst->verrechnen(Partie::ausZeile($zeile), null);
+			} catch (\Throwable $e) {
+				$this->logger->warning('Schachcomputer: Partie '.$zeile['id'].' nicht verrechnet: '.$e->getMessage(), array('exception' => $e));
+			}
+		}
+
+		$laufende = $this->connection->fetchAllAssociative('SELECT * FROM tl_schachcomputer_partie WHERE status=?', array(Partie::LAEUFT));
 		$beendet = 0;
 
-		foreach ($zeilen as $zeile) {
-			$partie = $this->pruefen(Partie::ausZeile($zeile), null, $jetztMs);
-			$beendet += Partie::LAEUFT === $partie->status ? 0 : 1;
+		foreach ($laufende as $zeile) {
+			try {
+				$partie = $this->pruefen(Partie::ausZeile($zeile), null, $jetztMs);
+				$beendet += Partie::LAEUFT === $partie->status ? 0 : 1;
+			} catch (\Throwable $e) {
+				$this->logger->warning('Schachcomputer: Partie '.$zeile['id'].' nicht geprüft: '.$e->getMessage(), array('exception' => $e));
+			}
 		}
 
 		return $beendet;
