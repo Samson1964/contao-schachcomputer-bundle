@@ -23,7 +23,7 @@ import {Chess} from "./vendor/chess.js/chess.js"
 // alte Fassung aus seinem Zwischenspeicher. Ein statischer Import kann die
 // Angabe nicht übernehmen, deshalb der dynamische Import.
 const VERSION = new URL(import.meta.url).search
-const {Engine, rechenzeit, zufallsZug} = await import("./engine.js" + VERSION)
+const {Engine, rechenzeit, zufallsZug, mitZeitlimit} = await import("./engine.js" + VERSION)
 const {Uhr} = await import("./uhr.js" + VERSION)
 
 /** Markierung des letzten Zuges. */
@@ -31,6 +31,12 @@ const MARKER_ZUG = MARKER_TYPE.square
 
 /** Zeit, die nach Ablauf der Frist für den ersten Zug gewartet wird, bevor der Stand geholt wird (ms). */
 const FRIST_PUFFER = 1500
+
+/** So lange wird auf eine startende Engine gewartet, etwa vor einer gewerteten Partie (ms). */
+const ENGINE_START_MS = 20000
+
+/** Höchstdauer einer Suche in gewerteten Partien; danach ein zweiter Versuch mit frischer Engine (ms). */
+const ENGINE_SUCHE_MS = 15000
 
 const warten = ms => new Promise(erfuellen => setTimeout(erfuellen, ms))
 
@@ -127,10 +133,99 @@ class Schachcomputer {
         this.feld.knoepfe.beenden.addEventListener("click", () => this.uebungBeenden(false))
         this.feld.knoepfe.pgn.addEventListener("click", () => this.pgnKopieren())
         this.feld.knoepfe.neu.addEventListener("click", () => this.startZeigen())
-        window.addEventListener("pagehide", () => this.engine.beenden())
+        window.addEventListener("pagehide", () => this.seiteVerlassen())
+        window.addEventListener("pageshow", ereignis => {
+            // Aus dem bfcache zurück: Worker und Timer sind weg, der Server
+            // kann die Partie inzwischen weitergeführt oder beendet haben
+            if (ereignis.persisted) {
+                this.standLaden()
+            }
+        })
 
         this.auswahlFuellen()
         this.standLaden(true)
+        this.engineVorwaermen()
+    }
+
+    // ------------------------------------------------------------------
+    // Engine
+
+    /**
+     * Lädt Stockfish schon beim Aufruf der Seite, ohne darauf zu warten.
+     *
+     * Die .wasm-Datei ist 1,8 MB groß; über Mobilfunk dauert das. Schlägt das
+     * Vorwärmen fehl, bleibt nur eine Warnung in der Konsole: Vor einer
+     * gewerteten Partie wird ohnehin noch einmal auf die Engine gewartet.
+     */
+    engineVorwaermen() {
+        this.engine.starten(ENGINE_START_MS).catch(fehler => console.warn("Schachcomputer: Stockfish ist noch nicht bereit.", fehler))
+    }
+
+    /**
+     * Räumt auf, wenn die Seite verlassen wird oder in den bfcache wandert.
+     *
+     * Die Generation steigt, damit eine abgewiesene Suche oder eine späte
+     * Antwort des Servers nichts mehr anrichtet; Uhr und Frist ruhen, bis
+     * pageshow den Stand neu lädt.
+     */
+    seiteVerlassen() {
+        this.generation++
+        clearTimeout(this.fristTimer)
+        this.uhr.anhalten()
+        this.engine.beenden()
+    }
+
+    /**
+     * Fragt Stockfish nach einem Zug.
+     *
+     * In gewerteten Partien mit Zeitlimit: Wird die Engine nicht bereit oder
+     * zieht sie nicht rechtzeitig, wird sie beendet und ein zweiter Versuch
+     * mit frischer Engine gemacht. Ohne Zug beim Server gälte die Partie nach
+     * 60 s als verlassen und verloren; ein hängender Worker darf das nicht
+     * verursachen. Übungspartien haben keine Frist und warten unbegrenzt.
+     *
+     * @param {string[]} zuege Bisherige Züge in UCI-Schreibweise
+     * @param {Object} einstellungen Einstellungen der Stufe
+     * @param {number} zeit Rechenzeit in ms
+     * @param {number} generation Generation beim Beginn des Engine-Zuges
+     * @returns {Promise<string>} Der Zug in UCI-Schreibweise; weist ab, wenn
+     *                            auch der zweite Versuch scheitert oder die
+     *                            Generation inzwischen gewechselt hat
+     */
+    async engineSuche(zuege, einstellungen, zeit, generation) {
+        if (this.modus !== "gewertet") {
+            return this.engine.zug(zuege, einstellungen, zeit)
+        }
+        try {
+            return await this.engineVersuch(zuege, einstellungen, zeit)
+        } catch (fehler) {
+            this.engine.beenden()
+            // Seite verlassen oder Partie neu geladen: kein zweiter Versuch
+            if (generation !== this.generation) {
+                throw fehler
+            }
+            console.warn("Schachcomputer: Stockfish antwortet nicht, zweiter Versuch mit frischer Engine.", fehler)
+        }
+        try {
+            return await this.engineVersuch(zuege, einstellungen, zeit)
+        } catch (fehler) {
+            this.engine.beenden()
+            throw fehler
+        }
+    }
+
+    /**
+     * Ein einzelner Versuch: Engine starten (höchstens ENGINE_START_MS) und
+     * suchen lassen (höchstens ENGINE_SUCHE_MS).
+     *
+     * @param {string[]} zuege Bisherige Züge in UCI-Schreibweise
+     * @param {Object} einstellungen Einstellungen der Stufe
+     * @param {number} zeit Rechenzeit in ms
+     * @returns {Promise<string>} Der Zug; weist bei Ausfall oder Zeitablauf ab
+     */
+    async engineVersuch(zuege, einstellungen, zeit) {
+        await this.engine.starten(ENGINE_START_MS)
+        return mitZeitlimit(this.engine.zug(zuege, einstellungen, zeit), ENGINE_SUCHE_MS, "Stockfish hat nicht rechtzeitig gezogen.")
     }
 
     // ------------------------------------------------------------------
@@ -329,12 +424,29 @@ class Schachcomputer {
 
     /**
      * Startet eine gewertete Partie; läuft schon eine, wird sie fortgesetzt.
+     *
+     * Vorher wird auf die bereite Engine gewartet (höchstens ENGINE_START_MS).
+     * Ist sie nicht bereit, beginnt keine Partie: Sonst verlöre der Spieler
+     * nach seinem ersten Zug, weil der Engine-Zug nie beim Server ankäme.
      */
     async gewertetStarten() {
         const generation = ++this.generation
         this.feld.gewertet.disabled = true
+        this.status(this.texte.laden)
         let antwort
         try {
+            try {
+                await this.engine.starten(ENGINE_START_MS)
+            } catch (fehler) {
+                console.error("Schachcomputer:", fehler)
+                if (generation === this.generation) {
+                    this.status(this.texte.engineNichtBereit, "fehler")
+                }
+                return
+            }
+            if (generation !== this.generation) {
+                return
+            }
             antwort = await this.anfrage(this.konfiguration.startUrl, {
                 bedenkzeit: Number(this.feld.bedenkzeit.value),
                 stufe: Number(this.feld.stufe.value),
@@ -554,6 +666,10 @@ class Schachcomputer {
     /**
      * Lässt Stockfish ziehen – oder würfelt bei schwachen Stufen einen
      * Zufallszug aus. Der Zug kommt nie schneller als nach der Rechenzeit.
+     *
+     * Scheitert Stockfish in einer gewerteten Partie auch im zweiten Versuch
+     * (siehe engineSuche()), erscheint eine eigene Meldung; der Server wertet
+     * die Partie dann nach 60 s ohne Engine-Zug als verlassen.
      */
     async engineZieht() {
         const generation = this.generation
@@ -566,9 +682,18 @@ class Schachcomputer {
         try {
             const legale = this.chess.moves({verbose: true}).map(zug => zug.lan)
             uci = zufallsZug(einstellungen, legale)
-                ?? await this.engine.zug(this.chess.history({verbose: true}).map(zug => zug.lan), einstellungen, zeit)
+                ?? await this.engineSuche(this.chess.history({verbose: true}).map(zug => zug.lan), einstellungen, zeit, generation)
         } catch (fehler) {
-            this.fehler(fehler)
+            // Inzwischen Seite verlassen, neu geladen oder zurückgenommen: kein Fehler für den Spieler
+            if (generation !== this.generation) {
+                return
+            }
+            if (this.modus === "gewertet") {
+                console.error("Schachcomputer:", fehler)
+                this.status(this.texte.engineAusgefallen, "fehler")
+            } else {
+                this.fehler(fehler)
+            }
             return
         }
         const rest = zeit - (performance.now() - beginn)

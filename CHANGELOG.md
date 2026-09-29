@@ -7,4 +7,5 @@
 * Add: Aktuelle Rangliste, ewige Bestenliste und Monatsrangliste zum Monatsersten
 * Add: Übungspartien mit Zurücknehmen und PGN, eigene Partien mit PGN-Download, Wertungsverlauf
 * Add: Cronjobs für verlassene Partien, Monatsranglisten und alte Gastpartien; Aufräumen beim Löschen eines Mitglieds
+* Add: Stockfish lädt schon beim Aufruf der Seite; lässt es sich nicht laden, beginnt keine gewertete Partie (mit Hinweis), und eine hängende Engine wird einmal frisch gestartet
 * Add: Statistik im Backend (Schachcomputer → Partien → Statistik) wie im Schachaufgaben-Bundle: Aufrufe, begonnene, beendete und abgebrochene Partien, Übungen, Punktquote, zwei Diagramme, meistgespielte Bedenkzeiten und aktivste Mitglieder

@@ -4,7 +4,7 @@
 
 import {test} from "node:test"
 import assert from "node:assert/strict"
-import {optionsBefehle, goBefehl, rechenzeit, zufallsZug, bestmove, Engine} from "../../src/Resources/public/engine.js"
+import {optionsBefehle, goBefehl, rechenzeit, zufallsZug, bestmove, mitZeitlimit, Engine} from "../../src/Resources/public/engine.js"
 
 const GEEICHT = {stufe: 1500, uciElo: 1500, skill: null, tiefe: null, zufall: 0, zeitMin: 1000, zeitMax: 2000}
 const SCHWACH = {stufe: 600, uciElo: null, skill: 0, tiefe: 1, zufall: 0.4, zeitMin: 1000, zeitMax: 2000}
@@ -96,4 +96,121 @@ test("zwei Suchen kurz nacheinander laufen nacheinander, nicht überlappend", as
     assert.ok(gesendet.slice(gos[0] + 1, gos[1]).includes("isready"), "die zweite Suche beginnt erst nach der ersten")
     engine.beenden()
     delete globalThis.Worker
+})
+
+/**
+ * Baut einen nachgebildeten Worker, der uci und isready beantwortet und auf
+ * „go" das tut, was aufGo vorgibt.
+ *
+ * @param {function(Object): void} aufGo Bekommt den Worker, wenn „go" ankommt
+ * @param {Object} protokoll Sammelt erzeugte und beendete Worker
+ * @returns {Function} Die Klasse für globalThis.Worker
+ */
+function nachgebildeterWorker(aufGo, protokoll) {
+    return class {
+        constructor() {
+            protokoll.erzeugt.push(this)
+        }
+        postMessage(befehl) {
+            if (befehl.startsWith("go")) {
+                setTimeout(() => aufGo(this), 0)
+                return
+            }
+            const antwort = {uci: "uciok", isready: "readyok"}[befehl]
+            if (antwort) {
+                setTimeout(() => this.onmessage({data: antwort}), 0)
+            }
+        }
+        terminate() {
+            protokoll.beendet.push(this)
+        }
+    }
+}
+
+test("ein Fehler im Worker weist die wartende Suche ab", async () => {
+    const protokoll = {erzeugt: [], beendet: []}
+    globalThis.Worker = nachgebildeterWorker(worker => worker.onerror({message: "WebAssembly fehlt"}), protokoll)
+
+    const engine = new Engine("stockfish.js")
+    await assert.rejects(engine.zug([], GEEICHT, 100), /WebAssembly fehlt/)
+
+    assert.equal(protokoll.beendet.length, 1, "der ausgefallene Worker wird beendet")
+    assert.equal(engine.worker, null)
+    assert.equal(engine.bereit, null)
+    delete globalThis.Worker
+})
+
+test("beenden() weist eine laufende Suche ab, statt sie hängen zu lassen", async () => {
+    const protokoll = {erzeugt: [], beendet: []}
+    let goAngekommen
+    const go = new Promise(erfuellen => { goAngekommen = erfuellen })
+    // Antwortet nie auf „go": ohne Abweisung wartete die Suche ewig
+    globalThis.Worker = nachgebildeterWorker(() => goAngekommen(), protokoll)
+
+    const engine = new Engine("stockfish.js")
+    const suche = engine.zug([], GEEICHT, 100)
+    await go
+    engine.beenden()
+
+    await assert.rejects(suche)
+    assert.equal(protokoll.beendet.length, 1)
+    delete globalThis.Worker
+})
+
+test("nach einem Fehler startet der nächste Zug einen neuen Worker", async () => {
+    const protokoll = {erzeugt: [], beendet: []}
+    globalThis.Worker = nachgebildeterWorker(worker => {
+        if (protokoll.erzeugt.length === 1) {
+            worker.onerror({message: "abgestürzt"})
+        } else {
+            worker.onmessage({data: "bestmove e2e4"})
+        }
+    }, protokoll)
+
+    const engine = new Engine("stockfish.js")
+    await assert.rejects(engine.zug([], GEEICHT, 100))
+    const zug = await engine.zug([], GEEICHT, 100)
+
+    assert.equal(zug, "e2e4")
+    assert.equal(protokoll.erzeugt.length, 2)
+    engine.beenden()
+    delete globalThis.Worker
+})
+
+test("starten() mit Zeitlimit weist ab, wenn die Engine nicht bereit wird", async () => {
+    const protokoll = {erzeugt: [], beendet: []}
+    // Meldet sich nie: so sieht eine .wasm aus, die über Mobilfunk nicht ankommt
+    globalThis.Worker = class {
+        constructor() {
+            protokoll.erzeugt.push(this)
+        }
+        postMessage() {
+        }
+        terminate() {
+            protokoll.beendet.push(this)
+        }
+    }
+
+    const engine = new Engine("stockfish.js")
+    await assert.rejects(engine.starten(20), /nicht rechtzeitig/)
+    engine.beenden()
+    delete globalThis.Worker
+})
+
+test("starten() erfüllt, sobald die Engine readyok gemeldet hat", async () => {
+    const protokoll = {erzeugt: [], beendet: []}
+    globalThis.Worker = nachgebildeterWorker(() => undefined, protokoll)
+
+    const engine = new Engine("stockfish.js")
+    await engine.starten(1000)
+    await engine.starten(1000)
+
+    assert.equal(protokoll.erzeugt.length, 1, "ein bereiter Worker wird weiterverwendet")
+    engine.beenden()
+    delete globalThis.Worker
+})
+
+test("mitZeitlimit reicht das Ergebnis durch oder weist nach Ablauf ab", async () => {
+    assert.equal(await mitZeitlimit(Promise.resolve("e2e4"), 50, "zu spät"), "e2e4")
+    await assert.rejects(mitZeitlimit(new Promise(() => undefined), 10, "zu spät"), /zu spät/)
 })
