@@ -38,6 +38,12 @@ const ENGINE_START_MS = 20000
 /** Höchstdauer einer Suche in gewerteten Partien; danach ein zweiter Versuch mit frischer Engine (ms). */
 const ENGINE_SUCHE_MS = 15000
 
+/**
+ * Ausgleich des Servers bei abgelaufener Uhr (Uhr::AUSGLEICH_MS) plus Puffer:
+ * So lange meldet der Server nach Restzeit 0 noch „läuft" (ms).
+ */
+const UHR_AUSGLEICH_MS = 1000 + 300
+
 const warten = ms => new Promise(erfuellen => setTimeout(erfuellen, ms))
 
 /**
@@ -564,13 +570,23 @@ class Schachcomputer {
 
     /**
      * Gibt die Zugeingabe frei und startet bei gewerteten Partien die Uhr.
+     *
+     * Meldet der Server „läuft, Restzeit 0", ist die Zeit abgelaufen, aber
+     * der Ausgleich (Uhr::AUSGLEICH_MS) noch nicht verstrichen. Die Uhr bei 0
+     * zu starten hieße, nach 100 ms erneut zu fragen – mehrmals, mit jedes Mal
+     * neu aufgebautem Brett. Stattdessen wird einmal nach dem Ausgleich
+     * nachgefragt; ein Zug in dieser Zeit hebt die Nachfrage auf.
      */
     spielerIstAmZug() {
         this.zugBeginn = performance.now()
         let text = this.texte.amZug
         if (this.modus === "gewertet") {
             const partie = this.partie
-            if (partie.uhrLaeuft) {
+            if (partie.uhrLaeuft && partie.restzeit <= 0) {
+                this.uhr.zeigen(0)
+                clearTimeout(this.fristTimer)
+                this.fristTimer = setTimeout(() => this.partieNeuLaden(), UHR_AUSGLEICH_MS)
+            } else if (partie.uhrLaeuft) {
                 this.uhr.starten(partie.restzeit)
             } else {
                 this.uhr.zeigen(partie.restzeit)
