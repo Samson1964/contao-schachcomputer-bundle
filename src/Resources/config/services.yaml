@@ -27,6 +27,9 @@ services:
     Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst:
         public: true
 
+    Schachbulle\ContaoSchachcomputerBundle\Rangliste\Ranglisten:
+        public: true
+
     # Controller müssen öffentlich sein, damit der Router sie abrufen kann
     Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController:
         public: true

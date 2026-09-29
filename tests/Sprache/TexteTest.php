@@ -54,6 +54,8 @@ class TexteTest extends TestCase
 		return array(
 			'Template Spielen' => array('contao/templates/mod_schachcomputer_spielen.html5', "/texte\\['(\\w+)'\\]/", 'schachcomputer'),
 			'spielen.js'       => array('public/spielen.js', '/this\.texte\.(\w+)/', 'schachcomputer'),
+			'Template Rangliste' => array('contao/templates/mod_schachcomputer_rangliste.html5', "/texte\\['(\\w+)'\\]/", 'schachcomputer_rangliste'),
+			'Modul Rangliste'    => array('../Module/RanglisteModule.php', "/texte\\['(\\w+)'\\]/", 'schachcomputer_rangliste'),
 		);
 	}
 }

@@ -71,3 +71,20 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer'] = array
 		'unbeendet'    => 'Not finished',
 	),
 );
+
+// Module "ranking" (%s is replaced)
+$GLOBALS['TL_LANG']['MSC']['schachcomputer_rangliste'] = array
+(
+	'platz'        => 'Rank',
+	'name'         => 'Name',
+	'wertung'      => 'Rating',
+	'hoechstwert'  => 'Peak rating',
+	'partien'      => 'Games',
+	'datum'        => 'Reached on',
+	'veraenderung' => 'Ranks / points',
+	'neu'          => 'new',
+	'leer'         => 'Nobody is on this list yet. Players are listed once their rating is established.',
+	'monat'        => 'Month',
+	'anzeigen'     => 'Show',
+	'stand'        => 'As of 1 %s',
+);

@@ -9,6 +9,7 @@ declare(strict_types=1);
  * @license LGPL-3.0-or-later
  */
 
+use Schachbulle\ContaoSchachcomputerBundle\Module\RanglisteModule;
 use Schachbulle\ContaoSchachcomputerBundle\Module\SpielenModule;
 
 // Eigene Gruppe im Backend-Menü; der Schlüssel landet als CSS-Klasse im
@@ -33,4 +34,5 @@ $GLOBALS['BE_MOD']['schachcomputer'] = array
 $GLOBALS['FE_MOD']['schachcomputer'] = array
 (
 	'schachcomputer_spielen'   => SpielenModule::class,
+	'schachcomputer_rangliste' => RanglisteModule::class,
 );

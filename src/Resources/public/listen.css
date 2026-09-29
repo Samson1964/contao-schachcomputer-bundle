@@ -1,0 +1,66 @@
+/*
+ * Ranglisten, eigene Partien und Wertungsverlauf des Schachcomputers.
+ * Farben über Eigenschaften, damit ein Theme sie überschreiben kann.
+ */
+.schachcomputer-liste {
+	--schachcomputer-hervorhebung: #e8f1f9;
+	--schachcomputer-rand: #c8c8c8;
+
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.schachcomputer-liste caption {
+	text-align: left;
+	font-weight: bold;
+	margin-bottom: .5rem;
+}
+
+.schachcomputer-liste th,
+.schachcomputer-liste td {
+	padding: .35rem .5rem;
+	border-bottom: 1px solid var(--schachcomputer-rand);
+	text-align: left;
+	font-variant-numeric: tabular-nums;
+}
+
+.schachcomputer-liste .schachcomputer-eigene td {
+	background: var(--schachcomputer-hervorhebung);
+	font-weight: bold;
+}
+
+.schachcomputer-liste .schachcomputer-luecke td {
+	text-align: center;
+	border-bottom: 0;
+}
+
+.schachcomputer-monatswahl {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .5rem;
+	align-items: center;
+	margin-bottom: 1rem;
+}
+
+.schachcomputer-verlauf svg {
+	display: block;
+	width: 100%;
+	max-width: 40rem;
+	height: auto;
+}
+
+.schachcomputer-verlauf .kurve {
+	fill: none;
+	stroke: #1f6fb2;
+	stroke-width: 2;
+}
+
+.schachcomputer-verlauf .achse {
+	stroke: #c8c8c8;
+	stroke-width: 1;
+}
+
+.schachcomputer-verlauf text {
+	font-size: 12px;
+	fill: currentColor;
+}

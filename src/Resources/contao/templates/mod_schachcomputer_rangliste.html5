@@ -1,0 +1,53 @@
+<?php $this->extend('block_unsearchable'); ?>
+
+<?php $this->block('content'); ?>
+
+  <?php if ('stichtag' === $this->modus && count($this->monate) > 1): ?>
+    <form method="get" class="schachcomputer-monatswahl">
+      <label for="<?= $this->formularId ?>"><?= $this->texte['monat'] ?></label>
+      <select id="<?= $this->formularId ?>" name="monat">
+        <?php foreach ($this->monate as $monat): ?>
+          <option value="<?= $monat['wert'] ?>"<?php if ($monat['aktiv']): ?> selected<?php endif; ?>><?= $monat['text'] ?></option>
+        <?php endforeach; ?>
+      </select>
+      <button type="submit"><?= $this->texte['anzeigen'] ?></button>
+    </form>
+  <?php endif; ?>
+
+  <?php if ('stichtag' === $this->modus && $this->monatText): ?>
+    <p class="schachcomputer-stand"><?= sprintf($this->texte['stand'], $this->monatText) ?></p>
+  <?php endif; ?>
+
+  <?php if (empty($this->zeilen)): ?>
+    <p class="schachcomputer-leer"><?= $this->texte['leer'] ?></p>
+  <?php else: ?>
+    <table class="schachcomputer-liste">
+      <caption><?= $this->ueberschrift ?></caption>
+      <thead>
+        <tr>
+          <?php foreach ($this->kopf as $spalte): ?>
+            <th scope="col"><?= $spalte ?></th>
+          <?php endforeach; ?>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($this->zeilen as $zeile): ?>
+          <tr<?php if ($zeile['eigene']): ?> class="schachcomputer-eigene"<?php endif; ?>>
+            <?php foreach ($zeile['zellen'] as $zelle): ?>
+              <td><?= $zelle ?></td>
+            <?php endforeach; ?>
+          </tr>
+        <?php endforeach; ?>
+        <?php if ($this->eigene): ?>
+          <tr class="schachcomputer-luecke"><td colspan="<?= count($this->kopf) ?>">…</td></tr>
+          <tr class="schachcomputer-eigene">
+            <?php foreach ($this->eigene['zellen'] as $zelle): ?>
+              <td><?= $zelle ?></td>
+            <?php endforeach; ?>
+          </tr>
+        <?php endif; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+
+<?php $this->endblock(); ?>
