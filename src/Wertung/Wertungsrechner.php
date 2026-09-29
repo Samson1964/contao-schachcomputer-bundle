@@ -44,6 +44,12 @@ class Wertungsrechner
 	/**
 	 * Berechnet den Stand nach einer gewerteten Partie.
 	 *
+	 * Der Cronjob holt gescheiterte Verrechnungen nach (Partiedienst::allePruefen);
+	 * dabei kann eine ältere Partie erst nach einer schon verrechneten neueren
+	 * an die Reihe kommen. letztePartie wird deshalb nie zurückdatiert, sondern
+	 * bleibt beim jüngeren der beiden Zeitpunkte – sonst zählte die Ruhezeit der
+	 * nächsten echten Partie fälschlich ab dem älteren Datum.
+	 *
 	 * @param Spielerstand $stand  Der Stand vor der Partie
 	 * @param int          $stufe  Die Engine-Stufe, gegen die gespielt wurde
 	 * @param float        $punkte 1, 0,5 oder 0 aus Sicht des Spielers
@@ -72,7 +78,7 @@ class Wertungsrechner
 			$stand->niederlagen + (0.0 === $punkte ? 1 : 0),
 			$hoechstwert,
 			$hoechstwertDatum,
-			$ende,
+			max($stand->letztePartie, $ende),
 		);
 	}
 

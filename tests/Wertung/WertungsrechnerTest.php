@@ -98,6 +98,53 @@ class WertungsrechnerTest extends TestCase
 	}
 
 	/**
+	 * Der Cron holt gescheiterte Verrechnungen nach und kann eine ältere
+	 * Partie erst nach einer neueren verrechnen (Partiedienst::allePruefen).
+	 * letztePartie darf dabei nicht zurückfallen, sonst zählte die Ruhezeit
+	 * der nächsten echten Partie ab dem älteren statt dem tatsächlich
+	 * jüngsten Datum.
+	 */
+	public function testAeltereNachtraeglicheVerrechnungSetztLetztePartieNichtZurueck(): void
+	{
+		$rechner = new Wertungsrechner(new Glicko2());
+		$stand = new Spielerstand(new Wertung(1500, 60, 0.06), 5, 3, 0, 2, 0.0, 0, 5000);
+
+		$nachgeholt = $rechner->verrechnen($stand, 1500, 1.0, 3000);
+
+		$this->assertSame(5000, $nachgeholt->letztePartie, 'letztePartie bleibt beim jüngeren, schon bekannten Datum');
+	}
+
+	/**
+	 * Eine ganz normale, chronologisch spätere Partie schreibt letztePartie
+	 * wie gewohnt fort.
+	 */
+	public function testNeuerePartieSchreibtLetztePartieFort(): void
+	{
+		$rechner = new Wertungsrechner(new Glicko2());
+		$stand = new Spielerstand(new Wertung(1500, 60, 0.06), 5, 3, 0, 2, 0.0, 0, 3000);
+
+		$neu = $rechner->verrechnen($stand, 1500, 1.0, 5000);
+
+		$this->assertSame(5000, $neu->letztePartie);
+	}
+
+	/**
+	 * Wird eine ältere Partie nachträglich verrechnet, bleibt die Ruhezeit
+	 * unverändert (keine negative Ruhezeit, keine Rückdatierung): aktuell()
+	 * begrenzt die Differenz schon auf 0 Tage, wenn der Zeitpunkt vor der
+	 * letzten bekannten Partie liegt.
+	 */
+	public function testRuhezeitFuerAeltereNachtraeglicheVerrechnungBleibtNichtNegativ(): void
+	{
+		$rechner = new Wertungsrechner(new Glicko2());
+		$stand = new Spielerstand(new Wertung(1500, 60, 0.06), 5, 3, 0, 2, 0.0, 0, 5000);
+
+		$wertung = $rechner->aktuell($stand, 3000);
+
+		$this->assertSame(60.0, $wertung->getAbweichung(), 'kein Wachstum der Abweichung, wenn der Zeitpunkt vor letztePartie liegt');
+	}
+
+	/**
 	 * Stand aus Zeile und zurück bleibt gleich.
 	 */
 	public function testZeileHinUndZurueck(): void
