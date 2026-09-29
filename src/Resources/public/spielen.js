@@ -697,7 +697,8 @@ class Schachcomputer {
         this.brett.disableMoveInput()
         let text = this.ergebnisText(this.partie.status, this.partie.punkte, this.partie.grund)
         if (this.partie.verrechnet) {
-            text += " " + this.texte.wertungAenderung.replace("%s", this.partie.wertungVorher).replace("%s", this.partie.wertungNachher)
+            // Das Ergebnis („Verloren – Aufgabe") endet ohne Punkt, der Satz zur Wertung folgt als eigener Satz
+            text += ". " + this.texte.wertungAenderung.replace("%s", this.partie.wertungVorher).replace("%s", this.partie.wertungNachher)
         }
         this.status(text, this.partie.punkte === 1 ? "erfolg" : this.partie.punkte === 0 ? "fehler" : "")
         this.wertungenAuffrischen()
