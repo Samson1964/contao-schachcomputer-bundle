@@ -95,6 +95,33 @@ class PgnTest extends TestCase
 	}
 
 	/**
+	 * Steuerzeichen in Kopfwerten würden die PGN zerbrechen: Sie werden zu
+	 * einem Leerzeichen, am Rand entfernt.
+	 */
+	public function testSteuerzeichenImKopf(): void
+	{
+		$pgn = Pgn::erzeugen($this->narrenmatt(), "Muster\r\nmann,\tMax\x07 ", "example.org\n");
+
+		$this->assertStringContainsString('[Black "Muster mann, Max"]', $pgn);
+		$this->assertStringContainsString('[Site "example.org"]', $pgn);
+		$this->assertSame(9, substr_count($pgn, "]\n"), 'jeder Kopfeintrag auf einer Zeile');
+	}
+
+	/**
+	 * Contao speichert Namen teils HTML-kodiert (&#40; usw.); die PGN enthält
+	 * sie dekodiert, Anführungszeichen maskiert, ohne Steuerzeichen.
+	 */
+	public function testExportDekodiertNamen(): void
+	{
+		$max = Datenbank::mitglied($this->db, 'Max &#40;Jr.&#41; &quot;Blitz&quot;', "Mustermann\t&amp;\r\nSöhne");
+		$this->partiedienst->uebungSpeichern($max, 800, 'w', array('e2e4'), true, 1790000000000);
+
+		$pgn = (new PgnExport($this->db, $this->partiedienst))->mitglied($max, 'example.org');
+
+		$this->assertStringContainsString('[White "Mustermann & Söhne, Max (Jr.) \"Blitz\""]', $pgn);
+	}
+
+	/**
 	 * Der Export setzt den vollen Namen ein und fasst alle beendeten Partien zusammen.
 	 */
 	public function testExportUndBackend(): void

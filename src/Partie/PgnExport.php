@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoSchachcomputerBundle\Partie;
 
+use Contao\StringUtil;
 use Doctrine\DBAL\Connection;
 
 /**
@@ -70,9 +71,16 @@ class PgnExport
 	/**
 	 * Name des Spielers für die PGN.
 	 *
+	 * Contao speichert Eingaben aus Formularen teils HTML-kodiert (etwa
+	 * „&#40;" für eine Klammer, „&amp;" für „&"). Eine PGN ist kein HTML;
+	 * deshalb wird dekodiert. Steuerzeichen entfernt Pgn beim Schreiben
+	 * des Kopfes; hier genügt es, sie vor dem Zusammensetzen zu Leerzeichen
+	 * zu machen, damit trim() sie am Rand erfasst.
+	 *
 	 * @param int $memberId ID des Mitglieds, 0 für Gäste
 	 *
-	 * @return string „Nachname, Vorname", oder „Gast"
+	 * @return string „Nachname, Vorname", oder „Gast", wenn es das Mitglied
+	 *                nicht gibt oder beide Namen leer sind
 	 */
 	private function name(int $memberId): string
 	{
@@ -84,7 +92,8 @@ class PgnExport
 			return 'Gast';
 		}
 
-		$name = trim(trim((string) $zeile['lastname']).', '.trim((string) $zeile['firstname']), ', ');
+		$teil = static fn ($wert): string => trim((string) preg_replace('/[\x00-\x1F\x7F]+/', ' ', StringUtil::decodeEntities((string) $wert)));
+		$name = trim($teil($zeile['lastname']).', '.$teil($zeile['firstname']), ', ');
 
 		return '' === $name ? 'Gast' : $name;
 	}

@@ -63,10 +63,30 @@ final class Pgn
 		$zeilen = array();
 
 		foreach ($kopf as $name => $wert) {
-			$zeilen[] = sprintf('[%s "%s"]', $name, str_replace(array('\\', '"'), array('\\\\', '\\"'), $wert));
+			$zeilen[] = sprintf('[%s "%s"]', $name, self::kopfwert($wert));
 		}
 
 		return implode("\n", $zeilen)."\n\n".self::zugtext(Schiedsrichter::nachspielen($partie->zuege)->san(), $ergebnis)."\n";
+	}
+
+	/**
+	 * Bereitet einen Wert für einen PGN-Kopfeintrag auf.
+	 *
+	 * Steuerzeichen (auch Zeilenumbrüche und Tabulatoren) würden den
+	 * Kopfeintrag über mehrere Zeilen verteilen; jede Folge davon wird zu
+	 * einem Leerzeichen, Leerraum am Rand entfällt. Danach werden Backslash
+	 * und Anführungszeichen nach PGN-Norm maskiert. Geprüft wird byteweise:
+	 * In UTF-8 kommen die Bytes 0x00–0x1F und 0x7F nur als eigene Zeichen vor.
+	 *
+	 * @param string $wert Der Rohwert, etwa ein Spielername
+	 *
+	 * @return string Der Wert ohne Steuerzeichen, maskiert
+	 */
+	private static function kopfwert(string $wert): string
+	{
+		$wert = trim((string) preg_replace('/[\x00-\x1F\x7F]+/', ' ', $wert));
+
+		return str_replace(array('\\', '"'), array('\\\\', '\\"'), $wert);
 	}
 
 	/**
