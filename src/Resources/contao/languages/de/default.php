@@ -50,6 +50,7 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer'] = array
 	'beenden'           => 'Partie beenden',
 	'pgnKopieren'       => 'PGN kopieren',
 	'pgnKopiert'        => 'Die PGN liegt in der Zwischenablage.',
+	'pgnNichtKopiert'   => 'Die PGN lässt sich hier nicht in die Zwischenablage kopieren; das geht nur über eine sichere Verbindung (https).',
 	'neuePartie'        => 'Neue Partie',
 	'uebungGespeichert' => 'Die Partie steht jetzt unter „Eigene Partien".',
 	'klassen'           => array

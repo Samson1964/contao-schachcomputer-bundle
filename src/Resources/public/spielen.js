@@ -939,6 +939,11 @@ class Schachcomputer {
 
     /**
      * Legt die PGN der Partie in die Zwischenablage.
+     *
+     * navigator.clipboard gibt es nur über eine sichere Verbindung (HTTPS
+     * oder localhost). Fehlt es oder verweigert der Browser das Schreiben,
+     * erscheint ein eigener Hinweis statt der allgemeinen Fehlermeldung, die
+     * zum Neuladen rät – das hülfe hier nicht.
      */
     async pgnKopieren() {
         const heute = new Date()
@@ -952,11 +957,16 @@ class Schachcomputer {
         this.chess.setHeader("White", weiss ? this.texte.spieler : engine)
         this.chess.setHeader("Black", weiss ? engine : this.texte.spieler)
         this.chess.setHeader("Result", ergebnis)
+        if (!navigator.clipboard) {
+            this.status(this.texte.pgnNichtKopiert, "fehler")
+            return
+        }
         try {
             await navigator.clipboard.writeText(this.chess.pgn())
             this.status(this.texte.pgnKopiert)
         } catch (fehler) {
-            this.fehler(fehler)
+            console.error("Schachcomputer:", fehler)
+            this.status(this.texte.pgnNichtKopiert, "fehler")
         }
     }
 

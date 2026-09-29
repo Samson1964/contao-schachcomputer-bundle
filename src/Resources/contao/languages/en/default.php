@@ -50,6 +50,7 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer'] = array
 	'beenden'           => 'End game',
 	'pgnKopieren'       => 'Copy PGN',
 	'pgnKopiert'        => 'The PGN is in the clipboard.',
+	'pgnNichtKopiert'   => 'The PGN cannot be copied to the clipboard here; this only works over a secure connection (https).',
 	'neuePartie'        => 'New game',
 	'uebungGespeichert' => 'The game is now listed under "My games".',
 	'klassen'           => array
