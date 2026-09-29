@@ -22,3 +22,8 @@ services:
             - '../../Partie/Spieler.php'
             - '../../Wertung/Wertung.php'
             - '../../Wertung/Spielerstand.php'
+
+    # Controller müssen öffentlich sein, damit der Router sie abrufen kann
+    Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController:
+        public: true
+        tags: ['controller.service_arguments']

@@ -1,0 +1,50 @@
+# JSON-Schnittstelle des Moduls „Spielen". _scope: frontend sorgt dafür, dass
+# die Firewall des Frontends greift und angemeldete Mitglieder erkannt werden.
+# Die POST-Routen prüft der Controller selbst auf application/json (Schutz vor
+# fremden Formularen wie im Schachaufgaben-Bundle), deshalb _token_check: false.
+schachcomputer_stand:
+    path: /_schachcomputer/stand
+    controller: Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController::stand
+    methods: [GET]
+    defaults:
+        _scope: frontend
+
+schachcomputer_start:
+    path: /_schachcomputer/start
+    controller: Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController::start
+    methods: [POST]
+    defaults:
+        _scope: frontend
+        _token_check: false
+
+schachcomputer_zug:
+    path: /_schachcomputer/zug
+    controller: Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController::zug
+    methods: [POST]
+    defaults:
+        _scope: frontend
+        _token_check: false
+
+schachcomputer_aufgeben:
+    path: /_schachcomputer/aufgeben
+    controller: Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController::aufgeben
+    methods: [POST]
+    defaults:
+        _scope: frontend
+        _token_check: false
+
+schachcomputer_abbrechen:
+    path: /_schachcomputer/abbrechen
+    controller: Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController::abbrechen
+    methods: [POST]
+    defaults:
+        _scope: frontend
+        _token_check: false
+
+schachcomputer_uebung:
+    path: /_schachcomputer/uebung
+    controller: Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController::uebung
+    methods: [POST]
+    defaults:
+        _scope: frontend
+        _token_check: false
