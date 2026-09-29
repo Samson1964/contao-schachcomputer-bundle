@@ -1,0 +1,124 @@
+# Schachcomputer für Contao
+
+Mitglieder und Gäste spielen im Browser gewertete Partien gegen die
+Schach-Engine Stockfish. Aus den Partien entstehen Wertungszahlen und daraus
+Ranglisten. Läuft unter **Contao 4.13 und Contao 5.7** (PHP 8.1 bis 8.4).
+
+## Funktionen
+
+- **Gewertete Partien** mit Bedenkzeiten, die der Redakteur im Backend anlegt.
+  Jede Bedenkzeit gehört zu einer Wertungsklasse: Blitz, Schnellschach oder
+  Langpartie. Jede Klasse hat eigene Wertungen und Ranglisten.
+- **Spielstärke** von 600 bis 2500 in 100er-Schritten. Vorausgewählt ist die
+  Stufe, die der eigenen Wertung am nächsten liegt.
+- **Übungspartien** ohne Uhr, mit Zurücknehmen und „PGN kopieren". Für
+  Mitglieder werden sie gespeichert.
+- **Ranglisten**: aktuelle Rangliste, ewige Bestenliste (Höchstwerte) und
+  Monatsrangliste (Stand am Monatsersten, mit Veränderung zum Vormonat).
+- **Eigene Partien** mit PGN-Download und **Wertungsverlauf** als Kurve.
+- **Gäste** spielen ohne Anmeldung; ihre Wertung gilt nur für den Besuch und
+  erscheint in keiner Rangliste.
+- **Statistik im Backend** unter *Schachcomputer → Partien → Statistik*, aufgebaut
+  wie die Statistik des Schachaufgaben-Bundles (siehe unten).
+
+## Einrichtung
+
+1. Bundle installieren und die Datenbank aktualisieren
+   (`contao:migrate` oder Contao Manager).
+2. Im Backend unter **Schachcomputer → Bedenkzeiten** Bedenkzeiten anlegen und
+   veröffentlichen, etwa „3+2" (Blitz), „10+5" (Schnellschach), „30+0" (Langpartie).
+3. Frontend-Module anlegen und auf Seiten einbinden:
+   - **Schachcomputer: Spielen**
+   - **Schachcomputer: Rangliste** – Liste (aktuell, ewig, Monat), Klasse, Anzahl
+   - **Schachcomputer: Eigene Partien** – Anzahl je Seite
+   - **Schachcomputer: Wertungsverlauf**
+4. **Cronjob einrichten.** Verlassene Partien, Monatsranglisten und das
+   Aufräumen alter Gastpartien laufen über Contaos Cron. Ohne echten Cronjob
+   läuft er nur, wenn jemand die Seite aufruft; Ergebnisse stimmen dann
+   trotzdem, werden aber später verrechnet. Empfohlen, minütlich:
+
+   ```
+   * * * * * php /pfad/zu/contao/vendor/bin/contao-console contao:cron
+   ```
+
+## Spielregeln und Wertung
+
+- Der Server führt jede gewertete Partie: Jeder Zug wird auf dem Server
+  geprüft, die Uhr läuft auf dem Server. Wer den Tab schließt, verliert auf
+  Zeit.
+- Nur der Spieler hat eine Uhr. Sie läuft ab seinem zweiten Zug; für den
+  ersten Zug gibt es 60 Sekunden, sonst wird die Partie ungewertet
+  abgebrochen. Die Zeitgutschrift gibt es ab dem zweiten Zug. Bis zu einer
+  Sekunde Übertragungszeit je Zug wird ausgeglichen.
+- Die Engine rechnet in allen Klassen 1 bis 2 Sekunden je Zug. Bleibt ein
+  Engine-Zug 60 Sekunden aus (Tab geschlossen), gilt die Partie als
+  verlassen und ist verloren.
+- Remis nach den Regeln (Patt, dreifache Wiederholung, 50 Züge, ungenügendes
+  Material) wird selbsttätig erkannt. Läuft die Zeit ab und hat die Engine
+  kein Mattmaterial mehr, endet die Partie remis.
+- Wertung nach **Glicko-2**, Start 1500. Eine Wertung mit Abweichung über 110
+  gilt als vorläufig (Anzeige mit „?") und steht in keiner Rangliste. Wer
+  lange nicht spielt, wird wieder vorläufig – nach etwa drei Monaten.
+- Die ewige Bestenliste zählt nur Höchstwerte gesicherter Wertungen.
+
+**Zur Skala:** Stockfish hat seine Stärke ab 1320 an der CCRL-Blitzliste
+geeicht. Das sind keine DWZ-Werte: Stockfish mit 1500 spielt stärker als ein
+Vereinsspieler mit DWZ 1500. Die Stufen unter 1400 sind nachgebaut
+(begrenzte Suchtiefe und Zufallszüge) und geschätzt.
+
+**Bekannte Grenze:** Die Engine rechnet im Browser des Spielers. Wer gezielt
+manipuliert, könnte ihr schlechte Züge unterschieben; der Server prüft nur,
+ob sie regelgerecht sind. Für eine Vereinsseite ist das vertretbar.
+
+## Statistik im Backend
+
+Der Knopf **Statistik** oben in *Schachcomputer → Partien* zeigt, wie der
+Schachcomputer genutzt wird:
+
+- Zeitraum **Tag**, **Monat** oder **Jahr**, mit „zurück", „vor" und „bis heute".
+- Kennzahlen, jeweils nach Mitgliedern und Gästen getrennt: Aufrufe (Laden der
+  Seite mit dem Modul „Spielen"), begonnene, beendete und abgebrochene gewertete
+  Partien, gespeicherte Übungspartien; dazu die Punktquote der Spieler mit
+  Siegen, Remis und Niederlagen.
+- Zwei Balkendiagramme: begonnen vor aufgerufen, gewonnen vor beendet.
+- Die 20 meistgespielten Bedenkzeiten und die 20 aktivsten Mitglieder.
+
+Gezählt wird stündlich in `tl_schachcomputer_statistik` (eine Zeile je Stunde,
+Art und Mitglied/Gast), ab der Installation. Übungspartien von Gästen laufen nur
+im Browser und werden nicht erfasst. Die beiden Tabellen beruhen auf den Partien
+der Mitglieder, weil Gastpartien nach einem Tag gelöscht werden.
+
+## Mitgelieferte Programme
+
+| Programm | Fassung | Lizenz |
+| --- | --- | --- |
+| [Stockfish](https://stockfishchess.org/) über [stockfish.js](https://github.com/nmrugg/stockfish.js) (lite, single-threaded) | 19.0.0 | GPL-3.0 |
+| [cm-chessboard](https://github.com/shaack/cm-chessboard) | 8.14.2 | MIT |
+| [chess.js](https://github.com/jhlywa/chess.js) | 1.4.0 | BSD-2-Clause |
+| [p-chess/chess](https://github.com/p-chess/chess) (über Composer) | ^1.2 | MIT |
+
+Stockfish läuft als eigenständiges Programm in einem Web Worker; das Bundle
+spricht mit ihm nur über das UCI-Textprotokoll. Lizenztext und Quellenangabe
+liegen unter `src/Resources/public/vendor/stockfish/`.
+
+Der Server sollte `.wasm`-Dateien als `application/wasm` ausliefern. Sonst
+lädt Stockfish etwas langsamer, funktioniert aber.
+
+## Datenschutz
+
+Gespeichert werden je Partie die Züge, die Denkzeiten und das Ergebnis, bei
+Mitgliedern dazu Wertung und Wertungsverlauf. Öffentliche Ranglisten zeigen
+Namen nur als „Vorname N.". Beim Löschen eines Mitglieds (Backend oder
+„Konto schließen") werden alle seine Daten gelöscht. Gastpartien werden einen
+Tag nach ihrem Ende gelöscht.
+
+## Entwicklung
+
+```
+composer update
+vendor/bin/phpunit
+node --test "tests/js/*.test.mjs"
+```
+
+Die PHP-Tests laufen gegen SQLite im Arbeitsspeicher, die JavaScript-Tests
+mit Node (samt Rauchtest der mitgelieferten Engine).
