@@ -57,6 +57,35 @@ class KurveTest extends TestCase
 	}
 
 	/**
+	 * Auch unter deutscher Locale stehen Punkte in den Koordinaten.
+	 *
+	 * Seiteneffekt: stellt LC_NUMERIC für die Dauer des Tests um und danach
+	 * wieder her. Ist auf dem System keine deutsche Locale vorhanden, wird
+	 * der Test übersprungen.
+	 */
+	public function testKoordinatenUnabhaengigVonDerLocale(): void
+	{
+		$vorher = setlocale(LC_NUMERIC, '0');
+
+		if (false === setlocale(LC_NUMERIC, 'de_DE.UTF-8', 'de_DE', 'German', 'deu')) {
+			$this->markTestSkipped('Keine deutsche Locale verfügbar.');
+		}
+
+		try {
+			$linie = Kurve::svg(array(
+				array('zeit' => 1, 'wertung' => 1480.0),
+				array('zeit' => 2, 'wertung' => 1623.0),
+			), 'Blitz');
+			$punkt = Kurve::svg(array(array('zeit' => 1, 'wertung' => 1523.4)), 'Blitz');
+		} finally {
+			setlocale(LC_NUMERIC, (string) $vorher);
+		}
+
+		$this->assertMatchesRegularExpression('/points="48\.0,[\d.]+ 588\.0,[\d.]+"/', $linie);
+		$this->assertMatchesRegularExpression('/<circle class="kurve" cx="318\.0" cy="[\d.]+" r="3"\/>/', $punkt);
+	}
+
+	/**
 	 * Lange Verläufe werden ausgedünnt; Anfang und Ende bleiben.
 	 */
 	public function testAusduennen(): void

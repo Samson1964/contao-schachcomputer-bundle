@@ -65,7 +65,9 @@ final class Kurve
 		foreach ($werte as $index => $wert) {
 			$x = self::LINKS + ($anzahl > 1 ? $index * $flaecheBreite / ($anzahl - 1) : $flaecheBreite / 2);
 			$y = self::OBEN + ($oben - $wert) / ($oben - $unten) * $flaecheHoehe;
-			$koordinaten[] = sprintf('%.1f,%.1f', $x, $y);
+			// %F statt %f: %f richtet sich nach der Locale und schriebe bei
+			// deutscher Einstellung „48,0“, was die Koordinatenpaare zerreißt
+			$koordinaten[] = sprintf('%.1F,%.1F', $x, $y);
 		}
 
 		if (1 === $anzahl) {
