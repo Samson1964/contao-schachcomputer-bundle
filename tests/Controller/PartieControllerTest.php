@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoSchachcomputerBundle\Tests\Controller;
 
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\FrontendUser;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
@@ -197,16 +198,45 @@ class PartieControllerTest extends TestCase
 	}
 
 	/**
+	 * Prüft, dass jede Aktion zuerst das Contao-Framework initialisiert.
+	 *
+	 * Die Routen sind statische Symfony-Routen und laufen am
+	 * Contao-RouteProvider vorbei, der das sonst übernimmt. Ohne den Aufruf
+	 * zählte die Statistik nach der Zeitzone aus php.ini statt nach Contao,
+	 * siehe die Cronjobs (AufgabenTest::testCronjobsInitialisierenDasFramework).
+	 * Die einzelnen Aufrufe dürfen mit einem Fehlerstatus enden (415/400/403)
+	 * – geprüft wird nur, dass initialize() als Erstes läuft, nicht das
+	 * Ergebnis der jeweiligen Aktion.
+	 */
+	public function testAktionenInitialisierenDasFramework(): void
+	{
+		$framework = $this->createMock(ContaoFramework::class);
+		$framework->expects($this->exactly(6))->method('initialize');
+
+		$controller = $this->controller($framework);
+
+		$controller->stand($this->get());
+		$controller->start($this->post(array()));
+		$controller->zug($this->post(array()));
+		$controller->aufgeben($this->post(array()));
+		$controller->abbrechen($this->post(array()));
+		$controller->uebung($this->post(array()));
+	}
+
+	/**
 	 * Baut den Controller mit fester Uhr (T0).
+	 *
+	 * @param ContaoFramework|null $framework Eigener Framework-Mock für Erwartungen,
+	 *                                        sonst ein nachsichtiger Standard-Mock
 	 *
 	 * @return PartieController Der Controller
 	 */
-	private function controller(): PartieController
+	private function controller(?ContaoFramework $framework = null): PartieController
 	{
 		$wertungsdienst = new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2()));
 		$statistik = new Statistik($this->db, new NullLogger());
 
-		return new class(new Partiedienst($this->db, $wertungsdienst, $statistik, new NullLogger()), $wertungsdienst, $this->tokenStorage, $statistik) extends PartieController {
+		return new class(new Partiedienst($this->db, $wertungsdienst, $statistik, new NullLogger()), $wertungsdienst, $this->tokenStorage, $statistik, $framework ?? $this->createMock(ContaoFramework::class)) extends PartieController {
 			/**
 			 * Feste Zeit statt der Systemuhr.
 			 *

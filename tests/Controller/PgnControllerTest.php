@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoSchachcomputerBundle\Tests\Controller;
 
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\FrontendUser;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
@@ -57,7 +58,7 @@ class PgnControllerTest extends TestCase
 		$eva = Datenbank::mitglied($this->db, 'Eva', 'Andere');
 		$eigene = $this->partiedienst->uebungSpeichern($max, 800, 'w', array('e2e4'), true, 1790000000000);
 		$fremde = $this->partiedienst->uebungSpeichern($eva, 800, 'w', array('d2d4'), true, 1790000000000);
-		$controller = new PgnController($this->partiedienst, new PgnExport($this->db, $this->partiedienst), $this->tokenStorage);
+		$controller = new PgnController($this->partiedienst, new PgnExport($this->db, $this->partiedienst), $this->tokenStorage, $this->createMock(ContaoFramework::class));
 
 		$this->assertSame(403, $controller->einzeln($this->anfrage($eigene->id))->getStatusCode());
 
@@ -73,6 +74,24 @@ class PgnControllerTest extends TestCase
 		$alle = (string) $controller->alle($this->anfrage(0))->getContent();
 		$this->assertStringContainsString('1. e4', $alle);
 		$this->assertStringNotContainsString('1. d4', $alle);
+	}
+
+	/**
+	 * Beide Aktionen initialisieren zuerst das Contao-Framework.
+	 *
+	 * Auch diese Route ist eine statische Symfony-Route und läuft am
+	 * Contao-RouteProvider vorbei, der das sonst übernimmt; ohne den Aufruf
+	 * könnte das PGN-Datum um Mitternacht falsch sein (siehe PartieControllerTest).
+	 */
+	public function testAktionenInitialisierenDasFramework(): void
+	{
+		$framework = $this->createMock(ContaoFramework::class);
+		$framework->expects($this->exactly(2))->method('initialize');
+
+		$controller = new PgnController($this->partiedienst, new PgnExport($this->db, $this->partiedienst), $this->tokenStorage, $framework);
+
+		$controller->einzeln($this->anfrage(0));
+		$controller->alle($this->anfrage(0));
 	}
 
 	/**

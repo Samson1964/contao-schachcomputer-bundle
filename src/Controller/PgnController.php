@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoSchachcomputerBundle\Controller;
 
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\FrontendUser;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partie;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst;
@@ -35,18 +36,27 @@ class PgnController
 
 	private TokenStorageInterface $tokenStorage;
 
+	private ContaoFramework $framework;
+
 	/**
 	 * Übernimmt die benötigten Dienste.
+	 *
+	 * $framework wird zu Beginn jeder Aktion initialisiert: Diese Routen sind
+	 * statische Symfony-Routen und laufen am Contao-RouteProvider vorbei, der
+	 * das sonst übernimmt. Ohne den Aufruf bliebe Contaos eingestellte
+	 * Zeitzone unberücksichtigt, und das PGN-Datum könnte um Mitternacht falsch sein.
 	 *
 	 * @param Partiedienst          $partiedienst Lädt die Partie
 	 * @param PgnExport             $export       Schreibt die PGN
 	 * @param TokenStorageInterface $tokenStorage Liefert das angemeldete Mitglied
+	 * @param ContaoFramework       $framework    Setzt beim Initialisieren Contaos Zeitzone
 	 */
-	public function __construct(Partiedienst $partiedienst, PgnExport $export, TokenStorageInterface $tokenStorage)
+	public function __construct(Partiedienst $partiedienst, PgnExport $export, TokenStorageInterface $tokenStorage, ContaoFramework $framework)
 	{
 		$this->partiedienst = $partiedienst;
 		$this->export = $export;
 		$this->tokenStorage = $tokenStorage;
+		$this->framework = $framework;
 	}
 
 	/**
@@ -59,6 +69,8 @@ class PgnController
 	 */
 	public function einzeln(Request $request): Response
 	{
+		$this->framework->initialize();
+
 		$memberId = $this->memberId();
 
 		if (null === $memberId) {
@@ -83,6 +95,8 @@ class PgnController
 	 */
 	public function alle(Request $request): Response
 	{
+		$this->framework->initialize();
+
 		$memberId = $this->memberId();
 
 		if (null === $memberId) {

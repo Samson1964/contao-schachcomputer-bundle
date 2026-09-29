@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoSchachcomputerBundle\Controller;
 
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\FrontendUser;
 use Schachbulle\ContaoSchachcomputerBundle\Engine\Stufen;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partie;
@@ -53,20 +54,30 @@ class PartieController
 
 	private Statistik $statistik;
 
+	private ContaoFramework $framework;
+
 	/**
 	 * Übernimmt die benötigten Dienste.
+	 *
+	 * $framework wird zu Beginn jeder Aktion initialisiert: Diese Routen sind
+	 * statische Symfony-Routen und laufen am Contao-RouteProvider vorbei, der
+	 * das sonst übernimmt. Ohne den Aufruf bliebe Contaos eingestellte
+	 * Zeitzone unberücksichtigt, und Statistik::zaehlen() würde Aufrufe und
+	 * Partien nach der Zeitzone aus php.ini statt nach Contao einordnen.
 	 *
 	 * @param Partiedienst          $partiedienst   Führt die Partien
 	 * @param Wertungsdienst        $wertungsdienst Liefert Wertungen, trägt Gastpartien nach
 	 * @param TokenStorageInterface $tokenStorage   Liefert das angemeldete Mitglied
 	 * @param Statistik             $statistik      Zählt Aufrufe des Moduls
+	 * @param ContaoFramework       $framework      Setzt beim Initialisieren Contaos Zeitzone
 	 */
-	public function __construct(Partiedienst $partiedienst, Wertungsdienst $wertungsdienst, TokenStorageInterface $tokenStorage, Statistik $statistik)
+	public function __construct(Partiedienst $partiedienst, Wertungsdienst $wertungsdienst, TokenStorageInterface $tokenStorage, Statistik $statistik, ContaoFramework $framework)
 	{
 		$this->partiedienst = $partiedienst;
 		$this->wertungsdienst = $wertungsdienst;
 		$this->tokenStorage = $tokenStorage;
 		$this->statistik = $statistik;
+		$this->framework = $framework;
 	}
 
 	/**
@@ -85,6 +96,8 @@ class PartieController
 	 */
 	public function stand(Request $request): JsonResponse
 	{
+		$this->framework->initialize();
+
 		$session = $request->getSession();
 		$spieler = $this->spieler($session);
 		$jetzt = $this->jetztMs();
@@ -119,6 +132,8 @@ class PartieController
 	 */
 	public function start(Request $request): JsonResponse
 	{
+		$this->framework->initialize();
+
 		$daten = $this->eingabe($request);
 
 		if ($daten instanceof JsonResponse) {
@@ -151,6 +166,8 @@ class PartieController
 	 */
 	public function zug(Request $request): JsonResponse
 	{
+		$this->framework->initialize();
+
 		$daten = $this->eingabe($request);
 
 		if ($daten instanceof JsonResponse) {
@@ -183,6 +200,8 @@ class PartieController
 	 */
 	public function aufgeben(Request $request): JsonResponse
 	{
+		$this->framework->initialize();
+
 		$daten = $this->eingabe($request);
 
 		if ($daten instanceof JsonResponse) {
@@ -205,6 +224,8 @@ class PartieController
 	 */
 	public function abbrechen(Request $request): JsonResponse
 	{
+		$this->framework->initialize();
+
 		$daten = $this->eingabe($request);
 
 		if ($daten instanceof JsonResponse) {
@@ -229,6 +250,8 @@ class PartieController
 	 */
 	public function uebung(Request $request): JsonResponse
 	{
+		$this->framework->initialize();
+
 		$daten = $this->eingabe($request);
 
 		if ($daten instanceof JsonResponse) {
