@@ -166,12 +166,17 @@ class Schachcomputer {
      *
      * Die Generation steigt, damit eine abgewiesene Suche oder eine späte
      * Antwort des Servers nichts mehr anrichtet; Uhr und Frist ruhen, bis
-     * pageshow den Stand neu lädt.
+     * pageshow den Stand neu lädt. Die Zugeingabe wird abgeschaltet, sonst
+     * meldet cm-chessboard beim Zurückkommen „moveInput already enabled",
+     * weil enableMoveInput() kein zweites Mal ohne disableMoveInput() dazwischen
+     * aufgerufen werden darf; disableMoveInput() ist auch ohne laufende
+     * Eingabe gefahrlos aufrufbar.
      */
     seiteVerlassen() {
         this.generation++
         clearTimeout(this.fristTimer)
         this.uhr.anhalten()
+        this.brett.disableMoveInput()
         this.engine.beenden()
     }
 
