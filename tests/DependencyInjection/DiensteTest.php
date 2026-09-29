@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoSchachcomputerBundle\Tests\DependencyInjection;
 
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -37,7 +38,7 @@ class DiensteTest extends TestCase
 		$container = new ContainerBuilder();
 		$container->setParameter('kernel.project_dir', \dirname(__DIR__, 2));
 
-		foreach (array(Connection::class, TokenStorageInterface::class, RequestStack::class, LoggerInterface::class) as $contaoDienst) {
+		foreach (array(Connection::class, TokenStorageInterface::class, RequestStack::class, LoggerInterface::class, ContaoFramework::class) as $contaoDienst) {
 			$container->register($contaoDienst)->setSynthetic(true)->setPublic(true);
 		}
 

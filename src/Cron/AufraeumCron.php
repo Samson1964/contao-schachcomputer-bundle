@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace Schachbulle\ContaoSchachcomputerBundle\Cron;
 
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCronJob;
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Doctrine\DBAL\Connection;
 
 /**
@@ -29,23 +30,32 @@ class AufraeumCron
 	 */
 	public const FRIST = 86400;
 
+	private ContaoFramework $framework;
+
 	private Connection $connection;
 
 	/**
-	 * Übernimmt die Datenbankverbindung.
+	 * Übernimmt die benötigten Dienste.
 	 *
-	 * @param Connection $connection Die Datenbankverbindung von Contao
+	 * @param ContaoFramework $framework  Setzt beim Initialisieren Contaos Zeitzone
+	 * @param Connection      $connection Die Datenbankverbindung von Contao
 	 */
-	public function __construct(Connection $connection)
+	public function __construct(ContaoFramework $framework, Connection $connection)
 	{
+		$this->framework = $framework;
 		$this->connection = $connection;
 	}
 
 	/**
 	 * Räumt zum aktuellen Zeitpunkt auf.
+	 *
+	 * Initialisiert zuerst das Framework, wie die beiden anderen Cronjobs.
+	 * Hier rechnet zwar nichts mit der Zeitzone (nur Sekunden seit 1970),
+	 * aber so gilt für alle Cronjobs des Bundles dieselbe Umgebung.
 	 */
 	public function __invoke(): void
 	{
+		$this->framework->initialize();
 		$this->aufraeumen(time());
 	}
 

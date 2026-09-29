@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace Schachbulle\ContaoSchachcomputerBundle\Cron;
 
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCronJob;
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst;
 
 /**
@@ -25,23 +26,32 @@ use Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst;
 #[AsCronJob('minutely')]
 class ZeitablaufCron
 {
+	private ContaoFramework $framework;
+
 	private Partiedienst $partiedienst;
 
 	/**
-	 * Übernimmt den Partiedienst.
+	 * Übernimmt die benötigten Dienste.
 	 *
-	 * @param Partiedienst $partiedienst Prüft und beendet die Partien
+	 * @param ContaoFramework $framework    Setzt beim Initialisieren Contaos Zeitzone
+	 * @param Partiedienst    $partiedienst Prüft und beendet die Partien
 	 */
-	public function __construct(Partiedienst $partiedienst)
+	public function __construct(ContaoFramework $framework, Partiedienst $partiedienst)
 	{
+		$this->framework = $framework;
 		$this->partiedienst = $partiedienst;
 	}
 
 	/**
 	 * Prüft alle laufenden Partien zum aktuellen Zeitpunkt.
+	 *
+	 * Initialisiert zuerst das Framework: Unter contao:cron (CLI) tut das
+	 * sonst niemand, und die Statistik zählte beendete Partien in der Stunde
+	 * nach der Zeitzone aus php.ini statt nach der Zeitzone von Contao.
 	 */
 	public function __invoke(): void
 	{
+		$this->framework->initialize();
 		$this->pruefen((int) floor(microtime(true) * 1000));
 	}
 

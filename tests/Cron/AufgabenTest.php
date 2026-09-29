@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoSchachcomputerBundle\Tests\Cron;
 
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -58,7 +59,7 @@ class AufgabenTest extends TestCase
 		$partie = $this->partiedienst->starten($spieler, null, $bedenkzeit, 1500, 'w', self::T0);
 		$this->partiedienst->ziehen($spieler, null, $partie->id, 0, 'e2e4', null, self::T0 + 1000);
 
-		$this->assertSame(1, (new ZeitablaufCron($this->partiedienst))->pruefen(self::T0 + 1000 + 60001));
+		$this->assertSame(1, (new ZeitablaufCron($this->createMock(ContaoFramework::class), $this->partiedienst))->pruefen(self::T0 + 1000 + 60001));
 		$this->assertTrue($this->partiedienst->laden($partie->id)->verrechnet);
 	}
 
@@ -72,7 +73,7 @@ class AufgabenTest extends TestCase
 		$pid = (int) $this->db->lastInsertId();
 		$this->db->insert('tl_schachcomputer_verlauf', array('pid' => $pid, 'partie' => 1, 'zeit' => 1790000000, 'wertung' => 1650, 'abweichung' => 70));
 
-		$cron = new StichtagCron(new Stichtagsliste($this->db, new Glicko2()));
+		$cron = new StichtagCron($this->createMock(ContaoFramework::class), new Stichtagsliste($this->db, new Glicko2()));
 
 		// 1790000000 liegt am 21. September 2026; +20 und +25 Tage sind beide im Oktober
 		$this->assertSame(1, $cron->erstellen(1790000000 + 20 * 86400));
@@ -91,11 +92,28 @@ class AufgabenTest extends TestCase
 		$laufend = $this->partie(0, Partie::LAEUFT, 0);
 		$mitglied = $this->partie(7, Partie::BEENDET, $jetzt - 90000);
 
-		$this->assertSame(1, (new AufraeumCron($this->db))->aufraeumen($jetzt));
+		$this->assertSame(1, (new AufraeumCron($this->createMock(ContaoFramework::class), $this->db))->aufraeumen($jetzt));
 
 		$uebrig = array_map('intval', $this->db->fetchFirstColumn('SELECT id FROM tl_schachcomputer_partie ORDER BY id'));
 		$this->assertSame(array($frisch, $laufend, $mitglied), $uebrig);
 		$this->assertNotContains($alt, $uebrig);
+	}
+
+	/**
+	 * Jeder Cronjob initialisiert zuerst das Contao-Framework.
+	 *
+	 * Unter contao:cron (CLI) tut das sonst niemand; date() und mktime()
+	 * rechneten dann in der Zeitzone aus php.ini statt in der von Contao
+	 * (Monatserster der Stichtagsliste, Stunde der Statistik).
+	 */
+	public function testCronjobsInitialisierenDasFramework(): void
+	{
+		$framework = $this->createMock(ContaoFramework::class);
+		$framework->expects($this->exactly(3))->method('initialize');
+
+		(new ZeitablaufCron($framework, $this->partiedienst))();
+		(new StichtagCron($framework, new Stichtagsliste($this->db, new Glicko2())))();
+		(new AufraeumCron($framework, $this->db))();
 	}
 
 	/**

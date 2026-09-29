@@ -12,6 +12,7 @@ declare(strict_types=1);
 namespace Schachbulle\ContaoSchachcomputerBundle\Cron;
 
 use Contao\CoreBundle\DependencyInjection\Attribute\AsCronJob;
+use Contao\CoreBundle\Framework\ContaoFramework;
 use Schachbulle\ContaoSchachcomputerBundle\Rangliste\Stichtagsliste;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Klassen;
 
@@ -27,23 +28,33 @@ use Schachbulle\ContaoSchachcomputerBundle\Wertung\Klassen;
 #[AsCronJob('hourly')]
 class StichtagCron
 {
+	private ContaoFramework $framework;
+
 	private Stichtagsliste $stichtagsliste;
 
 	/**
-	 * Übernimmt den Dienst, der die Listen baut.
+	 * Übernimmt die benötigten Dienste.
 	 *
-	 * @param Stichtagsliste $stichtagsliste Baut und speichert die Listen
+	 * @param ContaoFramework $framework      Setzt beim Initialisieren Contaos Zeitzone
+	 * @param Stichtagsliste  $stichtagsliste Baut und speichert die Listen
 	 */
-	public function __construct(Stichtagsliste $stichtagsliste)
+	public function __construct(ContaoFramework $framework, Stichtagsliste $stichtagsliste)
 	{
+		$this->framework = $framework;
 		$this->stichtagsliste = $stichtagsliste;
 	}
 
 	/**
 	 * Legt fehlende Listen des laufenden Monats an.
+	 *
+	 * Initialisiert zuerst das Framework: Unter contao:cron (CLI) tut das
+	 * sonst niemand, und der Monatserste (mktime/date) läge in der Zeitzone
+	 * aus php.ini statt in der von Contao – bei UTC gegenüber Berlin um ein
+	 * bis zwei Stunden verschoben.
 	 */
 	public function __invoke(): void
 	{
+		$this->framework->initialize();
 		$this->erstellen(time());
 	}
 
