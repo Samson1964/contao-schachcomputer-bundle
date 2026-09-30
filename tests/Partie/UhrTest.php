@@ -49,6 +49,29 @@ class UhrTest extends TestCase
 	}
 
 	/**
+	 * Ohne Browsermessung (Computerzug) wird die Servermessung abzüglich des
+	 * vollen Ausgleichs angerechnet, nie unter 0.
+	 */
+	public function testAbzugOhneMessung(): void
+	{
+		$this->assertSame(4000, Uhr::abzugOhneMessung(5000));
+		$this->assertSame(0, Uhr::abzugOhneMessung(1000), 'genau der Ausgleich');
+		$this->assertSame(0, Uhr::abzugOhneMessung(300), 'kürzer als der Ausgleich');
+		$this->assertSame(0, Uhr::abzugOhneMessung(-20), 'negative Servermessung');
+	}
+
+	/**
+	 * Die benannte Methode rechnet wie abzug() mit einer Browsermessung von 0,
+	 * die vorher dafür herhalten musste.
+	 */
+	public function testAbzugOhneMessungWieAbzugMitNull(): void
+	{
+		foreach (array(-2000, -20, 0, 1, 300, 999, 1000, 1001, 5000, 180000) as $server) {
+			$this->assertSame(Uhr::abzug($server, 0), Uhr::abzugOhneMessung($server), 'Servermessung '.$server);
+		}
+	}
+
+	/**
 	 * Nach dem Zug wird abgezogen und gutgeschrieben.
 	 */
 	public function testNachZugMitGutschrift(): void

@@ -67,6 +67,24 @@ final class Uhr
 	}
 
 	/**
+	 * Bestimmt die abzuziehende Zeit, wenn es keine Browsermessung gibt –
+	 * beim Zug des Computers, dessen Dauer nur der Server misst.
+	 *
+	 * Angerechnet wird die Servermessung abzüglich des vollen Ausgleichs für
+	 * die Übertragung, nie unter 0. Das Ergebnis ist dasselbe wie abzug() mit
+	 * einer Browsermessung von 0, aber ohne dass ein erfundener Messwert
+	 * herhalten muss.
+	 *
+	 * @param int $serverMs Vom Server gemessene Zeit seit Beginn des Zuges
+	 *
+	 * @return int Servermessung minus AUSGLEICH_MS, mindestens 0
+	 */
+	public static function abzugOhneMessung(int $serverMs): int
+	{
+		return max(0, $serverMs - self::AUSGLEICH_MS);
+	}
+
+	/**
 	 * Berechnet die Restzeit nach einem Zug mit Zeitgutschrift.
 	 *
 	 * @param int $restzeitMs  Restzeit vor dem Zug

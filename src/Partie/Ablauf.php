@@ -159,10 +159,10 @@ final class Ablauf
 		} elseif ($partie->restzeitEngine >= 0) {
 			// Abgezogen wird die Servermessung abzüglich bis zu 1 s Ausgleich
 			// für die Übertragung, wie beim Spieler. Eine Browsermessung gibt
-			// es für den Computer nicht; 0 an ihrer Stelle lässt abzug() den
-			// vollen Ausgleich (AUSGLEICH_MS) gewähren, nie unter 0. Die
+			// es für den Computer nicht, deshalb gewährt abzugOhneMessung()
+			// den vollen Ausgleich (AUSGLEICH_MS), nie unter 0. Die
 			// Gutschrift gibt es schon ab dem ersten Computerzug.
-			$restzeitEngine = Uhr::nachZug($partie->restzeitEngine, Uhr::abzug($vergangen, 0), $partie->inkrement * 1000);
+			$restzeitEngine = Uhr::nachZug($partie->restzeitEngine, Uhr::abzugOhneMessung($vergangen), $partie->inkrement * 1000);
 
 			if (null === $restzeitEngine) {
 				self::engineZeitAbgelaufen($partie, $schiedsrichter, $jetztMs);
