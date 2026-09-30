@@ -77,8 +77,8 @@ class DatenbankSchemaTest extends TestCase
 		// serverVersion erspart die Verbindung zu einem MySQL-Server
 		$doctrine = $this->createMock(Registry::class);
 		$doctrine->method('getConnection')->willReturn(DriverManager::getConnection(array('driver' => 'pdo_mysql', 'serverVersion' => '8.0.30')));
+		// Seit PHP 8.1 darf Reflection auch nichtöffentliche Methoden ohne setAccessible() aufrufen
 		$leser = new \ReflectionMethod(DcaSchemaProvider::class, 'parseColumnSql');
-		$leser->setAccessible(true);
 		$tabelle = new Table('tl_schachcomputer_partie');
 		$leser->invoke(new DcaSchemaProvider($this->createMock(ContaoFramework::class), $doctrine), $tabelle, 'restzeitEngine', $sql);
 
