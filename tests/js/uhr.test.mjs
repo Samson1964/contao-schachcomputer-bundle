@@ -4,7 +4,7 @@
 
 import {test} from "node:test"
 import assert from "node:assert/strict"
-import {formatieren, warngrenze, Uhr} from "../../src/Resources/public/uhr.js"
+import {formatieren, fristSekunden, warngrenze, Uhr} from "../../src/Resources/public/uhr.js"
 
 test("Anzeige in Minuten und Sekunden, unter 10 s mit Zehnteln", () => {
     assert.equal(formatieren(180000), "3:00")
@@ -158,4 +158,17 @@ test("ohne Grenze oder ohne Warnung bleibt die Uhr ungefärbt", () => {
     assert.equal(feld.klassen.has("knapp"), false, "ohne Grenze (Uhr ohne Wert) ist die Warnung aus")
     uhr.zeigen(0)
     assert.equal(feld.klassen.has("knapp"), false)
+})
+
+test("Countdown der Frist: Sekunden aus dem festen Endzeitpunkt, aufgerundet, nie unter 0", () => {
+    const ende = 61000
+
+    assert.equal(fristSekunden(ende, 1000), 60, "zu Beginn die volle Frist")
+    assert.equal(fristSekunden(ende, 1001), 60, "59,999 s Rest zeigen noch 60")
+    assert.equal(fristSekunden(ende, 2000), 59, "genau 59 s Rest zeigen 59")
+    assert.equal(fristSekunden(ende, 2001), 59)
+    assert.equal(fristSekunden(ende, 60000), 1)
+    assert.equal(fristSekunden(ende, 60999), 1, "solange noch ein Rest bleibt, nie 0")
+    assert.equal(fristSekunden(ende, 61000), 0)
+    assert.equal(fristSekunden(ende, 65000), 0, "nach dem Ende bleibt es bei 0")
 })

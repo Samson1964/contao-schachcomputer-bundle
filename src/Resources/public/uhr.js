@@ -25,6 +25,23 @@ export function formatieren(ms) {
 }
 
 /**
+ * Berechnet die Sekunden, die der Countdown der Frist für den ersten Zug zeigt.
+ *
+ * Gerechnet wird aus einem festen Endzeitpunkt statt aus aufsummierten
+ * Takten: Ein verspäteter Takt (etwa in einem gedrosselten Hintergrund-Tab)
+ * verschiebt dann nichts, die nächste Anzeige stimmt wieder. Aufgerundet wird,
+ * damit die Anzeige wie die Frist selbst mit der vollen Zahl beginnt (60) und
+ * erst beim Ende der Frist auf 0 fällt.
+ *
+ * @param {number} ende Endzeitpunkt der Frist auf der Zeitachse von performance.now() (ms)
+ * @param {number} jetzt Aktueller Zeitpunkt auf derselben Zeitachse (ms)
+ * @returns {number} Verbleibende Sekunden, aufgerundet, mindestens 0
+ */
+export function fristSekunden(ende, jetzt) {
+    return Math.max(0, Math.ceil((ende - jetzt) / 1000))
+}
+
+/**
  * Ermittelt die Restzeit, unter der eine Uhr rot gefärbt wird.
  *
  * Normal färben sich die Ziffern, sobald die Uhr 0:59 zeigt. Bei sehr kurzen

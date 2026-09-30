@@ -27,7 +27,7 @@ import {Chess} from "./vendor/chess.js/chess.js"
 // Angabe nicht übernehmen, deshalb der dynamische Import.
 const VERSION = new URL(import.meta.url).search
 const {Engine, rechenzeit, zeitBudget, zufallsZug, mitZeitlimit, nimmtRemisAn, VOLLE_STAERKE} = await import("./engine.js" + VERSION)
-const {Uhr, warngrenze} = await import("./uhr.js" + VERSION)
+const {Uhr, fristSekunden, warngrenze} = await import("./uhr.js" + VERSION)
 
 /** Markierung des letzten Zuges. */
 const MARKER_ZUG = MARKER_TYPE.square
@@ -40,6 +40,13 @@ const UHR_KNAPP = "schachcomputer-uhr--knapp"
 
 /** Zeit, die nach Ablauf der Frist für den ersten Zug gewartet wird, bevor der Stand geholt wird (ms). */
 const FRIST_PUFFER = 1500
+
+/**
+ * Abstand, in dem der Countdown der Frist für den ersten Zug nachsieht, ob
+ * sich die Sekundenzahl geändert hat (ms). Kürzer als eine Sekunde, damit
+ * die Zahl höchstens einen Takt nach dem Sekundenwechsel springt.
+ */
+const FRIST_TAKT = 250
 
 /** So lange wird auf eine startende Engine gewartet, etwa vor einer gewerteten Partie (ms). */
 const ENGINE_START_MS = 20000
@@ -148,6 +155,7 @@ class Schachcomputer {
         this.chess = new Chess()
         this.wertungen = null
         this.fristTimer = null
+        this.fristTakt = null
         this.uebungsPunkte = null
 
         this.feld.start.addEventListener("submit", ereignis => {
@@ -198,7 +206,7 @@ class Schachcomputer {
      */
     seiteVerlassen() {
         this.generation++
-        clearTimeout(this.fristTimer)
+        this.fristBeenden()
         this.uhrenAnhalten()
         this.brett.disableMoveInput()
         this.engine.beenden()
@@ -467,7 +475,7 @@ class Schachcomputer {
      */
     startZeigen() {
         this.generation++
-        clearTimeout(this.fristTimer)
+        this.fristBeenden()
         this.uhrenAnhalten()
         this.brett.disableMoveInput()
         this.brett.removeMarkers()
@@ -568,7 +576,7 @@ class Schachcomputer {
      */
     async fortsetzen(partie) {
         const generation = ++this.generation
-        clearTimeout(this.fristTimer)
+        this.fristBeenden()
         this.modus = "gewertet"
         this.partie = partie
         this.chess = new Chess()
@@ -653,16 +661,19 @@ class Schachcomputer {
      *
      * Die Uhr des Computers steht und zeigt seine Restzeit nach dem letzten
      * Zug. Hervorgehoben wird die Uhr des Spielers nur, wenn sie läuft – für
-     * den ersten Zug gibt es stattdessen die Frist.
+     * den ersten Zug gibt es stattdessen die Frist, deren Countdown
+     * fristStarten() im Status anzeigt. Das gilt auch, wenn Stockfish Weiß
+     * hat: Die Frist beginnt dann nach seinem ersten Zug, und der Server
+     * meldet ersterZugFrist entsprechend.
      */
     spielerIstAmZug() {
         this.zugBeginn = performance.now()
-        let text = this.texte.amZug
+        let ersteFrist = null
         if (this.modus === "gewertet") {
             const partie = this.partie
             if (partie.uhrLaeuft && partie.restzeit <= 0) {
                 this.uhr.zeigen(0)
-                clearTimeout(this.fristTimer)
+                this.fristBeenden()
                 this.fristTimer = setTimeout(() => this.partieNeuLaden(), UHR_AUSGLEICH_MS)
             } else if (partie.uhrLaeuft) {
                 this.uhr.starten(partie.restzeit)
@@ -671,14 +682,66 @@ class Schachcomputer {
             }
             this.engineUhrStellen()
             this.uhrHervorheben(partie.uhrLaeuft ? "spieler" : null)
-            if (partie.ersterZugFrist !== null) {
-                text = this.texte.ersterZug.replace("%s", Math.ceil(partie.ersterZugFrist / 1000))
-                clearTimeout(this.fristTimer)
-                this.fristTimer = setTimeout(() => this.partieNeuLaden(), partie.ersterZugFrist + FRIST_PUFFER)
+            ersteFrist = partie.ersterZugFrist
+        }
+        if (ersteFrist === null) {
+            this.status(this.texte.amZug)
+        } else {
+            this.fristStarten(ersteFrist)
+        }
+        this.brett.enableMoveInput(this.eingabe, this.farbe)
+    }
+
+    /**
+     * Startet die Frist für den ersten Zug: Der Status zählt die Sekunden
+     * herunter, und nach Fristende wird der Stand vom Server neu geholt.
+     *
+     * Der Server bricht die Partie ungewertet ab, wenn der erste Zug nicht
+     * binnen 60 Sekunden eintrifft; der Spieler soll das sehen, bevor es
+     * geschieht. Die Sekunden werden aus einem festen Endzeitpunkt berechnet
+     * (fristSekunden()), nicht aufsummiert; der Takt (FRIST_TAKT) schaut nur
+     * nach, ob sich die Zahl geändert hat, und schreibt den Status dann
+     * höchstens einmal je Sekunde. Bei 0 hört der Takt auf; das Neuladen folgt
+     * nach FRIST_PUFFER, damit der Server die Frist sicher als verstrichen
+     * kennt. Eine laufende Frist wird vorher beendet, es läuft nie eine zweite.
+     *
+     * @param {number} frist Verbleibende Frist laut Server in ms (ersterZugFrist)
+     */
+    fristStarten(frist) {
+        this.fristBeenden()
+        const ende = performance.now() + frist
+        let angezeigt = null
+        const anzeigen = () => {
+            const sekunden = fristSekunden(ende, performance.now())
+            if (sekunden !== angezeigt) {
+                angezeigt = sekunden
+                this.status(this.texte.ersterZug.replace("%s", sekunden))
+            }
+            if (sekunden === 0) {
+                clearInterval(this.fristTakt)
+                this.fristTakt = null
             }
         }
-        this.status(text)
-        this.brett.enableMoveInput(this.eingabe, this.farbe)
+        this.fristTakt = setInterval(anzeigen, FRIST_TAKT)
+        anzeigen()
+        this.fristTimer = setTimeout(() => this.partieNeuLaden(), frist + FRIST_PUFFER)
+    }
+
+    /**
+     * Räumt alles ab, was mit der Frist zusammenhängt: das geplante Neuladen
+     * (nach der Frist für den ersten Zug oder nach dem Ausgleich einer
+     * abgelaufenen Uhr) und den Takt des Countdowns.
+     *
+     * Wird an jeder Stelle gerufen, die die Partie verlässt oder weiterführt
+     * (Zug gemacht, Abbruch, Aufgabe, Neustart, Neuladen, Ende, Seite
+     * verlassen), damit nirgends ein Takt weiterläuft und den Status
+     * überschreibt. Ohne laufende Frist geschieht nichts.
+     */
+    fristBeenden() {
+        clearTimeout(this.fristTimer)
+        clearInterval(this.fristTakt)
+        this.fristTimer = null
+        this.fristTakt = null
     }
 
     /**
@@ -739,7 +802,7 @@ class Schachcomputer {
      * @param {string} [umwandlung] Figur bei Bauernumwandlung (q, r, b, n)
      */
     async spielerZug(von, nach, umwandlung) {
-        clearTimeout(this.fristTimer)
+        this.fristBeenden()
         let zug
         try {
             zug = this.chess.move({from: von, to: nach, promotion: umwandlung})
@@ -999,7 +1062,7 @@ class Schachcomputer {
      */
     async endeMelden(url) {
         const generation = ++this.generation
-        clearTimeout(this.fristTimer)
+        this.fristBeenden()
         this.uhrenAnhalten()
         this.brett.disableMoveInput()
         let antwort
@@ -1025,7 +1088,7 @@ class Schachcomputer {
      * Zeigt das Ende einer gewerteten Partie mit Ergebnis und Wertungsänderung.
      */
     ende() {
-        clearTimeout(this.fristTimer)
+        this.fristBeenden()
         this.uhr.zeigen(this.partie.restzeit)
         this.engineUhrStellen()
         this.uhrHervorheben(null)
