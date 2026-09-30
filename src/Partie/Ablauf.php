@@ -58,13 +58,13 @@ final class Ablauf
 	 * Beide Uhren bekommen die Grundbedenkzeit. Hat der Computer Weiß, läuft
 	 * seine Uhr ab jetzt (uhrSeit).
 	 *
-	 * @param int                                                    $memberId   ID aus tl_member, 0 für Gäste
-	 * @param string                                                  $gast       Gastkennung, leer bei Mitgliedern
+	 * @param int                                                          $memberId   ID aus tl_member, 0 für Gäste
+	 * @param string                                                       $gast       Gastkennung, leer bei Mitgliedern
 	 * @param array{id: int, minuten: int, inkrement: int, klasse: string} $bedenkzeit Zeile aus tl_schachcomputer_bedenkzeit;
-	 *                                                                                  die Werte werden in die Partie kopiert
-	 * @param int                                                     $stufe      Spielstufe der Engine
-	 * @param string                                                  $farbe      Farbe des Spielers, „w" oder „b"
-	 * @param int                                                     $jetztMs    Aktueller Zeitpunkt
+	 *                                                                                 die Werte werden in die Partie kopiert
+	 * @param int                                                          $stufe      Spielstufe der Engine
+	 * @param string                                                       $farbe      Farbe des Spielers, „w" oder „b"
+	 * @param int                                                          $jetztMs    Aktueller Zeitpunkt
 	 *
 	 * @throws PartieFehler UNGUELTIG bei unbekannter Stufe oder Farbe
 	 *
