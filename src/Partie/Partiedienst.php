@@ -353,7 +353,8 @@ class Partiedienst
 	 * Prüft die Fristen einer Partie und speichert, falls sie dabei endet.
 	 *
 	 * Ist die Partie inzwischen weitergegangen (das Speichern scheitert an
-	 * der Zugnummer), gilt der neuere Stand aus der Datenbank.
+	 * der Zugnummer oder an einem inzwischen gespeicherten Remisangebot),
+	 * gilt der neuere Stand aus der Datenbank.
 	 *
 	 * @param Partie                $partie  Die Partie
 	 * @param SessionInterface|null $session Sitzung (für Gastwertungen), beim Cronjob null
@@ -364,13 +365,14 @@ class Partiedienst
 	public function pruefen(Partie $partie, ?SessionInterface $session, int $jetztMs): Partie
 	{
 		$alteZugnummer = $partie->zugnummer();
+		$altesRemisAngebot = $partie->remisAngebot;
 
 		if (!Ablauf::pruefen($partie, $jetztMs)) {
 			return $partie;
 		}
 
 		try {
-			$this->speichern($partie, $alteZugnummer);
+			$this->speichern($partie, $alteZugnummer, $altesRemisAngebot);
 		} catch (PartieFehler $fehler) {
 			return $this->laden($partie->id) ?? $partie;
 		}
@@ -462,7 +464,9 @@ class Partiedienst
 	 *
 	 * Erst werden die Fristen geprüft – ist eine abgelaufen, endet die
 	 * Partie deswegen, und die gewünschte Aktion entfällt. Sonst läuft die
-	 * Aktion. Danach wird bedingt gespeichert und bei Bedarf verrechnet.
+	 * Aktion. Danach wird bedingt gespeichert (Zugnummer, Status und
+	 * Remisangebot müssen noch dem Stand beim Laden entsprechen, siehe
+	 * speichern()) und bei Bedarf verrechnet.
 	 *
 	 * @param Spieler               $spieler  Mitglied oder Gast
 	 * @param SessionInterface|null $session  Sitzung (für Gastwertungen)
@@ -483,13 +487,15 @@ class Partiedienst
 			throw new PartieFehler(PartieFehler::NICHT_GEFUNDEN);
 		}
 
+		// Der Stand beim Laden, nicht der geänderte: Er kommt in die Bedingung des Speicherns
 		$alteZugnummer = $partie->zugnummer();
+		$altesRemisAngebot = $partie->remisAngebot;
 
 		if (!Ablauf::pruefen($partie, $jetztMs)) {
 			$aktion($partie);
 		}
 
-		$this->speichern($partie, $alteZugnummer);
+		$this->speichern($partie, $alteZugnummer, $altesRemisAngebot);
 		$this->endeZaehlen($partie, $jetztMs);
 		$this->wertungsdienst->verrechnen($partie, $session);
 
@@ -531,19 +537,27 @@ class Partiedienst
 	 * Schreibt eine laufende Partie zurück, aber nur, wenn sich in der
 	 * Datenbank seit dem Laden nichts geändert hat.
 	 *
-	 * @param Partie $partie        Die geänderte Partie
-	 * @param int    $alteZugnummer Zugnummer beim Laden
+	 * Geprüft werden Zugnummer, Status und Remisangebot. Das Remisangebot
+	 * gehört dazu, weil eine Ablehnung die Zugnummer nicht ändert: Ohne diese
+	 * Prüfung überschriebe ein Zug aus einem zweiten Tab, der die Partie vor
+	 * der Ablehnung geladen hat, das gerade gespeicherte remisAngebot mit
+	 * seinem alten Wert, und der Spieler dürfte sofort erneut anbieten. Aus
+	 * demselben Grund wird ein zweites, gleichzeitiges Angebot abgewiesen.
+	 *
+	 * @param Partie $partie            Die geänderte Partie
+	 * @param int    $alteZugnummer     Zugnummer beim Laden
+	 * @param int    $altesRemisAngebot Remisangebot beim Laden (vor der Änderung)
 	 *
 	 * @throws PartieFehler VERALTET, wenn eine andere Anfrage schneller war
 	 */
-	private function speichern(Partie $partie, int $alteZugnummer): void
+	private function speichern(Partie $partie, int $alteZugnummer, int $altesRemisAngebot): void
 	{
 		$werte = $partie->alsZeile() + array('tstamp' => time());
 		$zuweisungen = implode(', ', array_map(static fn (string $spalte): string => $spalte.'=?', array_keys($werte)));
 
 		$betroffen = (int) $this->connection->executeStatement(
-			'UPDATE tl_schachcomputer_partie SET '.$zuweisungen.' WHERE id=? AND zugnummer=? AND status=?',
-			array_merge(array_values($werte), array($partie->id, $alteZugnummer, Partie::LAEUFT))
+			'UPDATE tl_schachcomputer_partie SET '.$zuweisungen.' WHERE id=? AND zugnummer=? AND status=? AND remisAngebot=?',
+			array_merge(array_values($werte), array($partie->id, $alteZugnummer, Partie::LAEUFT, $altesRemisAngebot))
 		);
 
 		if (1 !== $betroffen) {

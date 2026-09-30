@@ -514,6 +514,34 @@ class PartiedienstTest extends TestCase
 	}
 
 	/**
+	 * Eine Anfrage mit altem Stand (etwa aus einem zweiten Tab) überschreibt
+	 * eine inzwischen gespeicherte Ablehnung nicht.
+	 *
+	 * Die Ablehnung ändert die Zugnummer nicht; ohne remisAngebot in der
+	 * WHERE-Bedingung träfe das bedingte Speichern des alten Standes trotzdem
+	 * und setzte remisAngebot auf 0 zurück – der Spieler dürfte sofort
+	 * wieder anbieten.
+	 */
+	public function testAlterStandUeberschreibtGespeicherteAblehnungNicht(): void
+	{
+		$spieler = Spieler::mitglied(7);
+		$partie = $this->bisZumAngebot($spieler);
+		$veraltet = $this->dienst->laden($partie->id);
+
+		$this->dienst->remis($spieler, null, $partie->id, 38, false, self::T0 + 40000);
+
+		// Mit dem alten Stand (remisAngebot 0) wäre die Uhr des Spielers längst abgelaufen
+		$geprueft = $this->dienst->pruefen($veraltet, null, self::T0 + 38000 + 180000 + 5000);
+
+		$this->assertSame(Partie::LAEUFT, $geprueft->status, 'es gilt der neuere Stand aus der Datenbank');
+		$this->assertSame(19, $geprueft->remisAngebot);
+
+		$gespeichert = $this->dienst->laden($partie->id);
+		$this->assertSame(Partie::LAEUFT, $gespeichert->status);
+		$this->assertSame(19, $gespeichert->remisAngebot, 'die Ablehnung bleibt erhalten');
+	}
+
+	/**
 	 * In fremden Partien lässt sich kein Remis anbieten.
 	 */
 	public function testRemisInFremderPartie(): void
