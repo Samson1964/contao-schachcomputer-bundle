@@ -4,10 +4,128 @@
 
 import {test} from "node:test"
 import assert from "node:assert/strict"
-import {optionsBefehle, goBefehl, rechenzeit, zufallsZug, bestmove, mitZeitlimit, Engine} from "../../src/Resources/public/engine.js"
+import {optionsBefehle, goBefehl, rechenzeit, zufallsZug, bestmove, mitZeitlimit, wasmUrlVon, wasmAdresse, Engine} from "../../src/Resources/public/engine.js"
 
 const GEEICHT = {stufe: 1500, uciElo: 1500, skill: null, tiefe: null, zufall: 0, zeitMin: 1000, zeitMax: 2000}
 const SCHWACH = {stufe: 600, uciElo: null, skill: 0, tiefe: 1, zufall: 0.4, zeitMin: 1000, zeitMax: 2000}
+
+/**
+ * Baut eine Engine, die die .wasm nicht selbst lädt: Die nachgebildeten
+ * Worker brauchen keine, und fetch() auf eine relative Adresse gibt es in Node
+ * nicht.
+ *
+ * @returns {Engine} Engine mit der Adresse „stockfish.js"
+ */
+function neueEngine() {
+    return new Engine("stockfish.js", {wasmLaden: async () => null})
+}
+
+/**
+ * Bildet fetch() für wasmAdresse() nach.
+ *
+ * @param {string} typ Content-Type, den der Server für die .wasm meldet ("" für keinen)
+ * @param {Object} protokoll Sammelt die Abrufe als „METHODE adresse"
+ * @param {number} [status] HTTP-Status der Antworten
+ * @returns {function(string, Object=): Promise<Response>} Ersatz für fetch()
+ */
+function nachgebildetesFetch(typ, protokoll, status = 200) {
+    return async (adresse, optionen = {}) => {
+        protokoll.push(`${optionen.method ?? "GET"} ${adresse}`)
+        const kopf = typ ? {"content-type": typ} : {}
+        return new Response(optionen.method === "HEAD" ? null : new Uint8Array([0, 97, 115, 109]), {status, headers: kopf})
+    }
+}
+
+test("die Adresse der .wasm folgt aus der des Skripts, samt Versionsangabe", () => {
+    assert.equal(wasmUrlVon("/bundles/x/stockfish-19-lite-single.js"), "/bundles/x/stockfish-19-lite-single.wasm")
+    assert.equal(wasmUrlVon("/bundles/x/stockfish.js?v=abc#hash"), "/bundles/x/stockfish.wasm?v=abc")
+})
+
+test("liefert der Server application/wasm, bleibt es bei der Adresse des Servers", async () => {
+    const protokoll = []
+    const adresse = await wasmAdresse("https://beispiel.test/sf.wasm", nachgebildetesFetch("application/wasm", protokoll))
+
+    assert.equal(adresse, "https://beispiel.test/sf.wasm")
+    assert.deepEqual(protokoll, ["HEAD https://beispiel.test/sf.wasm"], "nur der Kopf wird abgefragt")
+})
+
+test("fehlt der Typ (nginx ohne Eintrag), wird die .wasm als Blob mit richtigem Typ bereitgestellt", async () => {
+    const protokoll = []
+    const adresse = await wasmAdresse("https://beispiel.test/sf.wasm", nachgebildetesFetch("", protokoll))
+
+    assert.match(adresse, /^blob:/)
+    assert.deepEqual(protokoll, ["HEAD https://beispiel.test/sf.wasm", "GET https://beispiel.test/sf.wasm"])
+    const blob = await (await fetch(adresse)).blob()
+    assert.equal(blob.type, "application/wasm")
+    assert.equal(blob.size, 4)
+    URL.revokeObjectURL(adresse)
+})
+
+test("ist die .wasm nicht abrufbar, weist wasmAdresse() ab", async () => {
+    await assert.rejects(wasmAdresse("https://beispiel.test/sf.wasm", nachgebildetesFetch("", [], 404)), /HTTP 404/)
+})
+
+test("die Engine reicht die Adresse der .wasm im Hash an den Worker", async () => {
+    const adressen = []
+    globalThis.Worker = class {
+        constructor(url) {
+            adressen.push(url)
+        }
+        postMessage(befehl) {
+            const antwort = {uci: "uciok", isready: "readyok"}[befehl]
+            if (antwort) {
+                setTimeout(() => this.onmessage({data: antwort}), 0)
+            }
+        }
+        terminate() {
+        }
+    }
+
+    const geladen = []
+    const engine = new Engine("/bundles/x/stockfish.js?v=1", {wasmLaden: async adresse => { geladen.push(adresse); return "blob:https://beispiel.test/1234" }})
+    await engine.starten(1000)
+
+    assert.deepEqual(geladen, ["/bundles/x/stockfish.wasm?v=1"])
+    assert.deepEqual(adressen, ["/bundles/x/stockfish.js?v=1#" + encodeURIComponent("blob:https://beispiel.test/1234")])
+    engine.beenden()
+    delete globalThis.Worker
+})
+
+test("wird die Engine beendet, während die .wasm lädt, entsteht kein Worker", async () => {
+    const protokoll = {erzeugt: [], beendet: []}
+    globalThis.Worker = nachgebildeterWorker(() => undefined, protokoll)
+    let wasmFertig
+    const engine = new Engine("stockfish.js", {wasmLaden: () => new Promise(erfuellen => { wasmFertig = erfuellen })})
+
+    const start = engine.starten()
+    engine.beenden()
+    wasmFertig("blob:x")
+
+    await assert.rejects(start, /beendet/)
+    assert.equal(protokoll.erzeugt.length, 0)
+    assert.equal(engine.bereit, null)
+    delete globalThis.Worker
+})
+
+test("scheitert das Laden der .wasm, startet der nächste Aufruf neu", async () => {
+    const protokoll = {erzeugt: [], beendet: []}
+    globalThis.Worker = nachgebildeterWorker(() => undefined, protokoll)
+    let versuche = 0
+    const engine = new Engine("stockfish.js", {wasmLaden: async () => {
+        if (++versuche === 1) {
+            throw new Error("Netz weg")
+        }
+        return null
+    }})
+
+    await assert.rejects(engine.starten(), /Netz weg/)
+    await engine.starten(1000)
+
+    assert.equal(versuche, 2)
+    assert.equal(protokoll.erzeugt.length, 1)
+    engine.beenden()
+    delete globalThis.Worker
+})
 
 test("geeichte Stufen nutzen UCI_Elo und feste Rechenzeit", () => {
     assert.deepEqual(optionsBefehle(GEEICHT), ["setoption name UCI_LimitStrength value true", "setoption name UCI_Elo value 1500"])
@@ -58,7 +176,7 @@ test("Engine spricht UCI mit dem Worker und liefert den Zug", async () => {
         }
     }
 
-    const engine = new Engine("stockfish.js")
+    const engine = neueEngine()
     const zug = await engine.zug(["e2e4", "e7e5"], GEEICHT, 1500)
 
     assert.equal(zug, "g1f3")
@@ -86,7 +204,7 @@ test("zwei Suchen kurz nacheinander laufen nacheinander, nicht überlappend", as
         }
     }
 
-    const engine = new Engine("stockfish.js")
+    const engine = neueEngine()
     const [erster, zweiter] = await Promise.all([engine.zug([], GEEICHT, 100), engine.zug([], GEEICHT, 100)])
 
     assert.equal(erster, "e2e4")
@@ -131,7 +249,7 @@ test("ein Fehler im Worker weist die wartende Suche ab", async () => {
     const protokoll = {erzeugt: [], beendet: []}
     globalThis.Worker = nachgebildeterWorker(worker => worker.onerror({message: "WebAssembly fehlt"}), protokoll)
 
-    const engine = new Engine("stockfish.js")
+    const engine = neueEngine()
     await assert.rejects(engine.zug([], GEEICHT, 100), /WebAssembly fehlt/)
 
     assert.equal(protokoll.beendet.length, 1, "der ausgefallene Worker wird beendet")
@@ -147,7 +265,7 @@ test("beenden() weist eine laufende Suche ab, statt sie hängen zu lassen", asyn
     // Antwortet nie auf „go": ohne Abweisung wartete die Suche ewig
     globalThis.Worker = nachgebildeterWorker(() => goAngekommen(), protokoll)
 
-    const engine = new Engine("stockfish.js")
+    const engine = neueEngine()
     const suche = engine.zug([], GEEICHT, 100)
     await go
     engine.beenden()
@@ -164,7 +282,7 @@ test("eine noch wartende (nicht gestartete) Suche wird nach beenden() abgewiesen
     // Die erste Suche hängt in „go" fest, die zweite wartet in der Kette (this.kette)
     globalThis.Worker = nachgebildeterWorker(() => goAngekommen(), protokoll)
 
-    const engine = new Engine("stockfish.js")
+    const engine = neueEngine()
     const erste = engine.zug([], GEEICHT, 100)
     await go
     const zweite = engine.zug([], GEEICHT, 100)
@@ -183,7 +301,7 @@ test("ein synchroner Fehler bei new Worker() weist ab, statt die Ausführung abz
         }
     }
 
-    const engine = new Engine("stockfish.js")
+    const engine = neueEngine()
     let versprechen
     // starten() darf nicht synchron werfen: den Fehler des Konstruktors fängt es ab
     assert.doesNotThrow(() => { versprechen = engine.starten() })
@@ -203,7 +321,7 @@ test("nach einem Fehler startet der nächste Zug einen neuen Worker", async () =
         }
     }, protokoll)
 
-    const engine = new Engine("stockfish.js")
+    const engine = neueEngine()
     await assert.rejects(engine.zug([], GEEICHT, 100))
     const zug = await engine.zug([], GEEICHT, 100)
 
@@ -227,7 +345,7 @@ test("starten() mit Zeitlimit weist ab, wenn die Engine nicht bereit wird", asyn
         }
     }
 
-    const engine = new Engine("stockfish.js")
+    const engine = neueEngine()
     await assert.rejects(engine.starten(20), /nicht rechtzeitig/)
     engine.beenden()
     delete globalThis.Worker
@@ -237,7 +355,7 @@ test("starten() erfüllt, sobald die Engine readyok gemeldet hat", async () => {
     const protokoll = {erzeugt: [], beendet: []}
     globalThis.Worker = nachgebildeterWorker(() => undefined, protokoll)
 
-    const engine = new Engine("stockfish.js")
+    const engine = neueEngine()
     await engine.starten(1000)
     await engine.starten(1000)
 

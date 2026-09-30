@@ -102,6 +102,59 @@ export function mitZeitlimit(versprechen, zeitlimitMs, meldung) {
 }
 
 /**
+ * Leitet aus der Adresse von stockfish-19-lite-single.js die der .wasm ab.
+ *
+ * Eine Versionsangabe (?v=…) bleibt erhalten, ein Hash fällt weg.
+ *
+ * @param {string} url Adresse des Skripts
+ * @returns {string} Adresse der .wasm
+ */
+export function wasmUrlVon(url) {
+    const [ohneHash] = url.split("#")
+    const [pfad, abfrage] = ohneHash.split("?")
+    return pfad.replace(/\.js$/i, ".wasm") + (abfrage !== undefined ? `?${abfrage}` : "")
+}
+
+/**
+ * Liefert die Adresse, unter der Stockfish seine .wasm laden soll.
+ *
+ * stockfish.js 19 lädt die .wasm ausschließlich per
+ * WebAssembly.instantiateStreaming, und das verlangt den Content-Type
+ * application/wasm. Ohne ihn (etwa nginx ohne Eintrag in mime.types) startet
+ * die Engine gar nicht; das eingebaute Ausweichen von Emscripten greift nicht,
+ * weil stockfish.js es mit einem eigenen instantiateWasm übergeht.
+ *
+ * Deshalb wird zuerst nur der Kopf abgefragt. Stimmt der Typ, bleibt es bei
+ * der Adresse des Servers (der Worker lädt sie selbst, meist aus dem Cache,
+ * und eine Content-Security-Policy muss nichts Zusätzliches erlauben). Fehlt
+ * er, wird die Datei hier geladen und als Blob mit dem richtigen Typ
+ * bereitgestellt; der Worker lädt dann diese blob:-Adresse.
+ *
+ * @param {string} url Adresse der .wasm, auch relativ zur Seite
+ * @param {function(string, Object=): Promise<Response>} [holen] fetch oder ein Ersatz für Tests
+ * @returns {Promise<string>} Absolute Adresse des Servers oder blob:-Adresse
+ * @throws {Error} Wenn die .wasm nicht abrufbar ist
+ */
+export async function wasmAdresse(url, holen = (...argumente) => fetch(...argumente)) {
+    // Der Worker löst relative Adressen gegen seine eigene auf, nicht gegen die Seite
+    const absolut = typeof location === "undefined" ? url : new URL(url, location.href).href
+    try {
+        const kopf = await holen(absolut, {method: "HEAD"})
+        if (kopf.ok && (kopf.headers.get("content-type") ?? "").includes("application/wasm")) {
+            return absolut
+        }
+    } catch (fehler) {
+        // Manche Server beantworten HEAD nicht: dann gleich die Datei holen
+    }
+    const antwort = await holen(absolut)
+    if (!antwort.ok) {
+        throw new Error(`Stockfish (.wasm) ist nicht abrufbar: HTTP ${antwort.status}`)
+    }
+    const daten = await antwort.arrayBuffer()
+    return URL.createObjectURL(new Blob([daten], {type: "application/wasm"}))
+}
+
+/**
  * Stockfish im Web Worker. Es läuft höchstens eine Suche zugleich.
  *
  * Fällt der Worker aus (Skript oder .wasm nicht ladbar, kein WebAssembly,
@@ -116,9 +169,15 @@ export class Engine {
      * beim ersten Zug.
      *
      * @param {string} url Adresse von stockfish-19-lite-single.js
+     * @param {Object} [optionen]
+     * @param {function(string): Promise<string|null>} [optionen.wasmLaden]
+     *        Liefert zur Adresse der .wasm die Adresse, die der Worker laden
+     *        soll (Standard: wasmAdresse()); null heißt, Stockfish sucht die
+     *        .wasm selbst neben dem Skript. Tests setzen hier einen Ersatz ein.
      */
-    constructor(url) {
+    constructor(url, {wasmLaden = adresse => wasmAdresse(adresse)} = {}) {
         this.url = url
+        this.wasmLaden = wasmLaden
         this.worker = null
         this.bereit = null
         this.wartende = []
@@ -132,56 +191,80 @@ export class Engine {
      * Startet den Worker, falls er nicht schon läuft, und wartet auf uciok
      * und readyok. Taugt zum Vorwärmen beim Laden der Seite.
      *
+     * Vor dem Worker wird die Adresse der .wasm ermittelt (siehe
+     * wasmAdresse()); der Worker bekommt sie im Hash seiner Adresse, wo
+     * stockfish.js sie ausliest. Wird die Engine währenddessen beendet,
+     * entsteht kein Worker mehr.
+     *
      * Das Zeitlimit begrenzt nur das Warten des Aufrufers: Der Worker lädt
      * weiter, ein späterer Aufruf kann also noch Erfolg haben. Wer einen
      * frischen Start will, ruft vorher beenden().
      *
      * @param {number} [zeitlimitMs] Höchstwartezeit in ms; ohne Angabe unbegrenzt
      * @returns {Promise<void>} Erfüllt, sobald die Engine Befehle annimmt;
-     *                          weist ab, wenn der Worker nicht startet oder
-     *                          ausfällt, oder nach Ablauf des Zeitlimits
+     *                          weist ab, wenn .wasm oder Worker nicht laden
+     *                          oder die Engine ausfällt, oder nach Ablauf des
+     *                          Zeitlimits
      */
     starten(zeitlimitMs) {
         if (!this.bereit) {
-            let worker
-            try {
-                worker = new Worker(this.url)
-            } catch (fehler) {
-                // Etwa eine CSP, die Worker verbietet: sofort abweisen, beim
-                // nächsten Aufruf neu versuchen
-                return Promise.reject(fehler)
-            }
-            this.worker = worker
-            // Meldungen eines schon ersetzten Workers zählen nicht mehr
-            worker.onmessage = ereignis => {
-                if (this.worker === worker) {
-                    String(ereignis.data).split("\n").forEach(zeile => this.empfangen(zeile.trim()))
+            const epoche = this.epoche
+            const bereit = (async () => {
+                const wasm = await this.wasmLaden(wasmUrlVon(this.url))
+                if (epoche !== this.epoche) {
+                    throw new Error("Stockfish wurde beendet, bevor es starten konnte.")
                 }
-            }
-            worker.onerror = ereignis => {
-                if (this.worker === worker) {
-                    this.zuruecksetzen(new Error(`Stockfish ist ausgefallen: ${ereignis?.message ?? "unbekannter Fehler"}`))
-                }
-            }
-            worker.onmessageerror = () => {
-                if (this.worker === worker) {
-                    this.zuruecksetzen(new Error("Stockfish hat eine unlesbare Nachricht geschickt."))
-                }
-            }
-            this.bereit = (async () => {
+                this.workerStarten(wasm)
                 const uciok = this.warten(zeile => zeile === "uciok")
                 this.senden("uci")
                 await uciok
                 await this.synchronisieren()
             })()
-            // Ein Fehlstart, auf den gerade niemand wartet (Vorwärmen mit
-            // abgelaufenem Zeitlimit), soll nicht als unbehandelt gemeldet werden
-            this.bereit.catch(() => undefined)
+            this.bereit = bereit
+            bereit.catch(() => {
+                // Scheiterte der Start selbst (.wasm nicht ladbar, new Worker
+                // verboten), darf der nächste Aufruf neu beginnen. Ausfälle und
+                // beenden() haben über zuruecksetzen() schon aufgeräumt. Das
+                // catch verhindert zugleich die Meldung „unbehandelt", wenn
+                // gerade niemand wartet (Vorwärmen mit abgelaufenem Zeitlimit).
+                if (this.bereit === bereit) {
+                    this.bereit = null
+                }
+            })
         }
         if (zeitlimitMs === undefined) {
             return this.bereit
         }
         return mitZeitlimit(this.bereit, zeitlimitMs, "Stockfish ist nicht rechtzeitig bereit.")
+    }
+
+    /**
+     * Legt den Worker an und verbindet seine Ereignisse mit der Engine.
+     *
+     * Meldungen und Fehler eines inzwischen ersetzten Workers zählen nicht mehr.
+     *
+     * @param {string|null} wasm Adresse der .wasm für den Hash der Worker-Adresse;
+     *                           null lässt Stockfish die .wasm selbst suchen
+     * @throws {Error} Wenn der Browser den Worker verweigert (etwa per CSP)
+     */
+    workerStarten(wasm) {
+        const worker = new Worker(wasm ? `${this.url}#${encodeURIComponent(wasm)}` : this.url)
+        this.worker = worker
+        worker.onmessage = ereignis => {
+            if (this.worker === worker) {
+                String(ereignis.data).split("\n").forEach(zeile => this.empfangen(zeile.trim()))
+            }
+        }
+        worker.onerror = ereignis => {
+            if (this.worker === worker) {
+                this.zuruecksetzen(new Error(`Stockfish ist ausgefallen: ${ereignis?.message ?? "unbekannter Fehler"}`))
+            }
+        }
+        worker.onmessageerror = () => {
+            if (this.worker === worker) {
+                this.zuruecksetzen(new Error("Stockfish hat eine unlesbare Nachricht geschickt."))
+            }
+        }
     }
 
     /**

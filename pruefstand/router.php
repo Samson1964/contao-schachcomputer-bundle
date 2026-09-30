@@ -15,6 +15,11 @@ declare(strict_types=1);
  * Vorhandene Dateien liefert der Server selbst aus, alles Übrige geht an
  * Contaos index.php. .wasm-Dateien werden ausdrücklich als application/wasm
  * gesendet, damit Stockfish wie auf einem echten Server lädt.
+ *
+ * Mit dem Cookie „wasmOhneTyp=1“ geht die .wasm dagegen ohne Content-Type
+ * hinaus, so wie bei nginx ohne passenden Eintrag in mime.types. Damit lässt
+ * sich prüfen, dass die Engine auch auf solchen Servern startet. Im Browser
+ * setzen: document.cookie = "wasmOhneTyp=1; path=/"
  */
 
 $wurzel = $_SERVER['DOCUMENT_ROOT'] ?? '';
@@ -22,7 +27,14 @@ $pfad = (string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 
 if ('' !== $wurzel && '/' !== $pfad && is_file($wurzel.$pfad)) {
 	if (str_ends_with($pfad, '.wasm')) {
-		header('Content-Type: application/wasm');
+		if ('1' === ($_COOKIE['wasmOhneTyp'] ?? '')) {
+			// Ohne leeren Standardtyp setzte PHP selbst text/html
+			ini_set('default_mimetype', '');
+			header_remove('Content-Type');
+		} else {
+			header('Content-Type: application/wasm');
+		}
+
 		readfile($wurzel.$pfad);
 
 		return true;

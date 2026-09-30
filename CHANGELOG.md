@@ -1,5 +1,9 @@
 # Änderungen
 
+## Version 1.0.1 (2026-09-30)
+
+* Fix: Stockfish startete nicht, wenn der Server die .wasm-Datei ohne Content-Type application/wasm auslieferte (etwa nginx ohne Eintrag in mime.types); stattdessen erschien „Stockfish ließ sich nicht laden“. Das Bundle lädt die Datei in diesem Fall selbst und reicht sie mit dem richtigen Typ weiter.
+
 ## Version 1.0.0 (2026-09-29)
 
 * Add: Gewertete Partien gegen Stockfish 19 im Browser, Bedenkzeiten aus dem Backend in den Klassen Blitz, Schnellschach und Langpartie

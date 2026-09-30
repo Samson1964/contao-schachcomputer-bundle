@@ -122,8 +122,13 @@ Stockfish läuft als eigenständiges Programm in einem Web Worker; das Bundle
 spricht mit ihm nur über das UCI-Textprotokoll. Lizenztext und Quellenangabe
 liegen unter `src/Resources/public/vendor/stockfish/`.
 
-Der Server sollte `.wasm`-Dateien als `application/wasm` ausliefern. Sonst
-lädt Stockfish etwas langsamer, funktioniert aber.
+Stockfish lädt seine `.wasm`-Datei nur, wenn der Server sie als
+`application/wasm` ausliefert. Fehlt dieser Typ (etwa bei nginx ohne
+passenden Eintrag in `mime.types`), lädt das Bundle die Datei selbst und
+reicht sie mit dem richtigen Typ als `blob:`-Adresse an Stockfish weiter.
+Das funktioniert ohne Zutun; besser ist trotzdem der richtige Typ, bei nginx
+etwa `types { application/wasm wasm; }`. Wer dann noch eine
+Content-Security-Policy setzt, muss in `connect-src` auch `blob:` erlauben.
 
 ## Datenschutz
 
