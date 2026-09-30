@@ -2,7 +2,7 @@
 
 ## Version 1.1.0 (2026-09-30)
 
-* Add: Echte Schachuhr auch für den Computer. In gewerteten Partien stehen zwei Uhren nebeneinander („Stockfish“ und „Du“), die gerade laufende ist hervorgehoben. Der Server misst die Zeit des Computers selbst, zieht sie ab und schreibt die Gutschrift ab dem ersten Computerzug gut. Trifft sein Zug nach Ablauf seiner Uhr ein, verliert der Computer auf Zeit (remis, wenn der Spieler kein Mattmaterial mehr hat); bleibt der Zug ganz aus, gilt weiter die Frist von 60 Sekunden. Nach dem Update die Datenbank aktualisieren (neue Spalte `restzeitEngine`); Partien, die vorher begonnen wurden, laufen ohne Uhr des Computers zu Ende.
+* Add: Echte Schachuhr auch für den Computer. In gewerteten Partien stehen zwei Uhren nebeneinander („Stockfish“ und „Du“), die gerade laufende ist hervorgehoben. Der Server misst die Zeit des Computers selbst, zieht sie abzüglich bis zu 1 s Ausgleich für die Übertragung ab (wie beim Spieler) und schreibt die Gutschrift ab dem ersten Computerzug gut. Trifft sein Zug nach Ablauf seiner Uhr ein, verliert der Computer auf Zeit (remis, wenn der Spieler kein Mattmaterial mehr hat); bleibt der Zug ganz aus, gilt weiter die Frist von 60 Sekunden. Nach dem Update die Datenbank aktualisieren (neue Spalte `restzeitEngine`); Partien, die vorher begonnen wurden, laufen ohne Uhr des Computers zu Ende.
 * Change: Zeiteinteilung von Stockfish in gewerteten Partien: Wird seine Uhr knapp, rechnet er kürzer (höchstens ein Dreißigstel der Restzeit plus die halbe Gutschrift, mindestens 0,2 Sekunden) und zieht auch auf schwachen Stufen schneller.
 
 ## Version 1.0.1 (2026-09-30)

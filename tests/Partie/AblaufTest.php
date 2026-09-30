@@ -240,8 +240,9 @@ class AblaufTest extends TestCase
 
 	/**
 	 * Die Uhr des Computers verliert die vom Server gemessene Zeit zwischen
-	 * Spielerzug und Computerzug und bekommt danach die Gutschrift; die Uhr
-	 * des Spielers bleibt davon unberührt.
+	 * Spielerzug und Computerzug, abzüglich bis zu 1 s Ausgleich für die
+	 * Übertragung, und bekommt danach die Gutschrift; die Uhr des Spielers
+	 * bleibt davon unberührt.
 	 */
 	public function testComputerUhrAbzugUndGutschrift(): void
 	{
@@ -249,20 +250,36 @@ class AblaufTest extends TestCase
 		Ablauf::zug($partie, 'e2e4', 0, 800, self::T0 + 1000);
 		$this->assertSame(180000, $partie->restzeitEngine);
 
-		// 3 s vom gespeicherten Spielerzug bis zum Eintreffen des Computerzugs
-		Ablauf::zug($partie, 'e7e5', 1, null, self::T0 + 4000);
+		// 4 s vom gespeicherten Spielerzug bis zum Eintreffen des Computerzugs,
+		// davon 1 s Ausgleich: angerechnet werden 3 s
+		Ablauf::zug($partie, 'e7e5', 1, null, self::T0 + 5000);
 		$this->assertSame(180000 - 3000 + 2000, $partie->restzeitEngine);
 		$this->assertSame(180000, $partie->restzeit);
 
 		// Während der Spieler denkt, steht die Uhr des Computers
-		Ablauf::zug($partie, 'g1f3', 2, 6000, self::T0 + 10000);
+		Ablauf::zug($partie, 'g1f3', 2, 6000, self::T0 + 11000);
 		$this->assertSame(179000, $partie->restzeitEngine);
 		$this->assertSame(180000 - 6000 + 2000, $partie->restzeit);
 
-		Ablauf::zug($partie, 'b8c6', 3, null, self::T0 + 15000);
-		$this->assertSame(179000 - 5000 + 2000, $partie->restzeitEngine);
+		Ablauf::zug($partie, 'b8c6', 3, null, self::T0 + 16000);
+		$this->assertSame(179000 - 4000 + 2000, $partie->restzeitEngine);
 		$this->assertSame(array(0, 6000), $partie->zeiten);
 		$this->assertSame(Partie::LAEUFT, $partie->status);
+	}
+
+	/**
+	 * Der Ausgleich für die Übertragung beträgt höchstens 1 s: Unter einer
+	 * Sekunde kostet der Computerzug nichts, die Gutschrift gibt es trotzdem.
+	 */
+	public function testComputerUhrMitAusgleichFuerDieUebertragung(): void
+	{
+		$schnell = $this->partie('b');
+		Ablauf::zug($schnell, 'e2e4', 0, null, self::T0 + 600);
+		$this->assertSame(180000 + 2000, $schnell->restzeitEngine);
+
+		$langsam = $this->partie('b');
+		Ablauf::zug($langsam, 'e2e4', 0, null, self::T0 + 30000);
+		$this->assertSame(180000 - 29000 + 2000, $langsam->restzeitEngine);
 	}
 
 	/**
@@ -276,29 +293,29 @@ class AblaufTest extends TestCase
 
 		Ablauf::zug($partie, 'e2e4', 0, null, self::T0 + 2500);
 
-		$this->assertSame(180000 - 2500 + 2000, $partie->restzeitEngine);
+		$this->assertSame(180000 - 1500 + 2000, $partie->restzeitEngine);
 		$this->assertSame(180000, $partie->restzeit);
 		$this->assertSame(self::T0 + 2500, $partie->uhrSeit);
 	}
 
 	/**
 	 * Trifft der Computerzug nach Ablauf seiner Uhr ein, wird er nicht
-	 * ausgeführt, und der Computer verliert auf Zeit. Ein Zug genau zum
-	 * Ablauf gilt noch als rechtzeitig.
+	 * ausgeführt, und der Computer verliert auf Zeit. Wegen des Ausgleichs
+	 * gilt ein Zug bis 1 s nach dem Ablauf noch als rechtzeitig.
 	 */
 	public function testComputerZugNachAblaufSeinerUhr(): void
 	{
 		$rechtzeitig = $this->partie('w');
 		Ablauf::zug($rechtzeitig, 'e2e4', 0, null, self::T0 + 1000);
 		$rechtzeitig->restzeitEngine = 5000;
-		Ablauf::zug($rechtzeitig, 'e7e5', 1, null, self::T0 + 6000);
+		Ablauf::zug($rechtzeitig, 'e7e5', 1, null, self::T0 + 1000 + 6000);
 		$this->assertSame(Partie::LAEUFT, $rechtzeitig->status);
 		$this->assertSame(0 + 2000, $rechtzeitig->restzeitEngine);
 
 		$zuSpaet = $this->partie('w');
 		Ablauf::zug($zuSpaet, 'e2e4', 0, null, self::T0 + 1000);
 		$zuSpaet->restzeitEngine = 5000;
-		Ablauf::zug($zuSpaet, 'e7e5', 1, null, self::T0 + 6001);
+		Ablauf::zug($zuSpaet, 'e7e5', 1, null, self::T0 + 1000 + 6001);
 
 		$this->assertSame(Partie::BEENDET, $zuSpaet->status);
 		$this->assertSame('zeit', $zuSpaet->grund);
@@ -307,7 +324,7 @@ class AblaufTest extends TestCase
 		$this->assertSame(0, $zuSpaet->restzeitEngine);
 		$this->assertSame(180000, $zuSpaet->restzeit);
 		$this->assertSame(array('e2e4'), $zuSpaet->zuege);
-		$this->assertSame(1790000006, $zuSpaet->ende);
+		$this->assertSame(1790000007, $zuSpaet->ende);
 	}
 
 	/**

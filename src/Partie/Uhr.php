@@ -25,7 +25,8 @@ namespace Schachbulle\ContaoSchachcomputerBundle\Partie;
  * Deshalb zählt die im Browser gemessene Denkzeit, solange sie höchstens
  * AUSGLEICH_MS unter der Servermessung liegt. Die Zeit des Computers misst
  * der Server allein, vom Speichern des Spielerzugs bis zum Eintreffen des
- * Computerzugs.
+ * Computerzugs; angerechnet wird sie abzüglich des vollen Ausgleichs
+ * (bis zu AUSGLEICH_MS für die Übertragung).
  */
 final class Uhr
 {

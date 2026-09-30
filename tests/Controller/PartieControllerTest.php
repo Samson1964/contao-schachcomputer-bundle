@@ -186,14 +186,15 @@ class PartieControllerTest extends TestCase
 		$this->assertFalse($rechnet['uhrLaeuft']);
 		$this->assertSame(180000, $rechnet['restzeit']);
 
-		$this->jetzt = self::T0 + 4000;
+		// 4 s gemessen, abzüglich 1 s Ausgleich, plus 2 s Gutschrift
+		$this->jetzt = self::T0 + 5000;
 		$nachComputerzug = $this->daten($controller->zug($this->post(array('partie' => $partie['id'], 'zugnummer' => 1, 'zug' => 'e7e5', 'denkzeit' => null))))['partie'];
 		$this->assertFalse($nachComputerzug['engineUhrLaeuft']);
 		$this->assertSame(180000 - 3000 + 2000, $nachComputerzug['restzeitEngine']);
 		$this->assertTrue($nachComputerzug['uhrLaeuft']);
 
 		// Der Spieler denkt: seine Uhr läuft, die des Computers steht
-		$this->jetzt = self::T0 + 6000;
+		$this->jetzt = self::T0 + 7000;
 		$denkt = $this->daten($controller->stand($this->get($partie['id'])))['partie'];
 		$this->assertFalse($denkt['engineUhrLaeuft']);
 		$this->assertSame(179000, $denkt['restzeitEngine']);

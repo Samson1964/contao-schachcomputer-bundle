@@ -188,8 +188,9 @@ class PartiedienstTest extends TestCase
 		$this->assertSame(180000, $this->dienst->laden($partie->id)->restzeitEngine);
 
 		$this->dienst->ziehen($spieler, null, $partie->id, 0, 'e2e4', null, self::T0 + 1000);
-		$this->dienst->ziehen($spieler, null, $partie->id, 1, 'e7e5', null, self::T0 + 4000);
+		$this->dienst->ziehen($spieler, null, $partie->id, 1, 'e7e5', null, self::T0 + 5000);
 
+		// 4 s gemessen, abzüglich 1 s Ausgleich, plus 2 s Gutschrift
 		$this->assertSame(180000 - 3000 + 2000, $this->dienst->laden($partie->id)->restzeitEngine);
 	}
 

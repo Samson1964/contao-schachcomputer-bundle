@@ -63,7 +63,8 @@ Ranglisten. Läuft unter **Contao 4.13 und Contao 5.7** (PHP 8.1 bis 8.4).
   Übertragungszeit je Zug wird ausgeglichen.
 - Die Uhr des Computers läuft ab seinem ersten Zug, die Gutschrift gibt es
   ebenfalls ab dem ersten Zug. Seine Zeit misst der Server selbst: vom
-  Speichern des Spielerzugs bis zum Eintreffen des Computerzugs.
+  Speichern des Spielerzugs bis zum Eintreffen des Computerzugs, abzüglich
+  bis zu 1 s Ausgleich für die Übertragung (wie beim Spieler).
 - **Zeiteinteilung von Stockfish:** Die Engine rechnet 1 bis 2 Sekunden je
   Zug, und zwar im Browser des Spielers. Wird ihre Uhr knapp, rechnet sie
   kürzer: höchstens ein Dreißigstel der Restzeit (nach einer Sekunde

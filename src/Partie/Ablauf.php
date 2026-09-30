@@ -90,8 +90,9 @@ final class Ablauf
 	 *
 	 * Beim Computerzug zählt zuerst die Engine-Frist (verlassen), dann die Uhr
 	 * des Computers: Der Server zieht die selbst gemessene Zeit seit uhrSeit
-	 * ab und schreibt die Gutschrift gut; war die Uhr schon abgelaufen,
-	 * verliert der Computer auf Zeit. Partien ohne Uhr des Computers
+	 * abzüglich bis zu 1 s Ausgleich für die Übertragung ab und schreibt die
+	 * Gutschrift gut; war die Uhr schon abgelaufen, verliert der Computer auf
+	 * Zeit. Partien ohne Uhr des Computers
 	 * (restzeitEngine -1, vor Fassung 1.1.0) bleiben davon unberührt.
 	 *
 	 * @param Partie   $partie     Die laufende Partie
@@ -141,9 +142,12 @@ final class Ablauf
 
 			return;
 		} elseif ($partie->restzeitEngine >= 0) {
-			// Ohne Browsermessung zieht abzug() die volle Servermessung ab.
-			// Die Gutschrift gibt es schon ab dem ersten Computerzug.
-			$restzeitEngine = Uhr::nachZug($partie->restzeitEngine, Uhr::abzug($vergangen, null), $partie->inkrement * 1000);
+			// Abgezogen wird die Servermessung abzüglich bis zu 1 s Ausgleich
+			// für die Übertragung, wie beim Spieler. Eine Browsermessung gibt
+			// es für den Computer nicht; 0 an ihrer Stelle lässt abzug() den
+			// vollen Ausgleich (AUSGLEICH_MS) gewähren, nie unter 0. Die
+			// Gutschrift gibt es schon ab dem ersten Computerzug.
+			$restzeitEngine = Uhr::nachZug($partie->restzeitEngine, Uhr::abzug($vergangen, 0), $partie->inkrement * 1000);
 
 			if (null === $restzeitEngine) {
 				self::engineZeitAbgelaufen($partie, $schiedsrichter, $jetztMs);
