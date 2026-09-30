@@ -25,6 +25,23 @@ export function formatieren(ms) {
 }
 
 /**
+ * Ermittelt die Restzeit, unter der eine Uhr rot gefärbt wird.
+ *
+ * Normal färben sich die Ziffern, sobald die Uhr 0:59 zeigt. Bei sehr kurzen
+ * Bedenkzeiten (Grundzeit höchstens eine Minute, gleich welche Gutschrift)
+ * wäre die Uhr sonst von der ersten Sekunde an rot; dort gilt erst 0:20.
+ * Die Anzeige rundet Sekunden ab, deshalb liegt die Grenze eine Sekunde über
+ * dem gemeinten Wert: Bei 20 999 ms steht 0:20 auf der Uhr, bei 21 000 ms
+ * noch 0:21.
+ *
+ * @param {number} minuten Grundzeit der Partie in Minuten
+ * @returns {number} Grenze in ms; unterhalb davon ist die Uhr knapp
+ */
+export function warngrenze(minuten) {
+    return minuten <= 1 ? 21000 : 60000
+}
+
+/**
  * Eine ablaufende Uhr mit Anzeige in einem Element.
  */
 export class Uhr {
@@ -41,10 +58,51 @@ export class Uhr {
         this.restzeit = 0
         this.start = null
         this.takt = null
+        this.warnung = null
+    }
+
+    /**
+     * Legt fest, ab welcher Restzeit die Uhr als knapp gilt und welches
+     * Element dann eine Klasse bekommt.
+     *
+     * Die Klasse wird bei jeder Anzeige neu gesetzt oder entfernt (zeigen() und
+     * ticken()), also auch bei einer stehenden Uhr. Der gerade gezeigte Stand
+     * wird sofort bewertet. Ohne Aufruf dieser Methode fasst die Uhr kein
+     * Element an. Wechselt das Element bei einem späteren Aufruf, bleibt eine
+     * Klasse am alten Element stehen; spielen.js übergibt immer dasselbe.
+     *
+     * @param {number|null} grenzeMs Knapp ist eine Restzeit unterhalb dieser Grenze (ms);
+     *                               null schaltet die Warnung aus und nimmt die Klasse weg,
+     *                               etwa für eine Uhr ohne Wert
+     * @param {{classList: {toggle: function(string, boolean): boolean}}} element Element, das die Klasse trägt
+     * @param {string} klasse Name der Klasse
+     */
+    warnungSetzen(grenzeMs, element, klasse) {
+        this.warnung = {grenzeMs, element, klasse}
+        this.warnungPruefen(this.verbleibend())
+    }
+
+    /**
+     * Setzt oder entfernt die Warnklasse passend zu einer Restzeit.
+     *
+     * Ohne vorheriges warnungSetzen() geschieht nichts. Eine Restzeit genau auf
+     * der Grenze ist noch nicht knapp.
+     *
+     * @param {number} restzeit Die angezeigte Restzeit in ms
+     */
+    warnungPruefen(restzeit) {
+        if (this.warnung === null) {
+            return
+        }
+        const {grenzeMs, element, klasse} = this.warnung
+        element.classList.toggle(klasse, grenzeMs !== null && restzeit < grenzeMs)
     }
 
     /**
      * Zeigt eine Restzeit an, ohne die Uhr laufen zu lassen.
+     *
+     * Färbt die Uhr, wenn die Restzeit unter der Warngrenze liegt (siehe
+     * warnungSetzen()).
      *
      * @param {number} restzeit Restzeit in ms
      */
@@ -52,6 +110,7 @@ export class Uhr {
         this.anhalten()
         this.restzeit = restzeit
         this.anzeige.textContent = formatieren(restzeit)
+        this.warnungPruefen(restzeit)
     }
 
     /**
@@ -66,11 +125,12 @@ export class Uhr {
     }
 
     /**
-     * Aktualisiert die Anzeige und meldet den Ablauf.
+     * Aktualisiert die Anzeige samt Warnfarbe und meldet den Ablauf.
      */
     ticken() {
         const rest = this.verbleibend()
         this.anzeige.textContent = formatieren(rest)
+        this.warnungPruefen(rest)
         if (rest <= 0 && this.start !== null) {
             this.anhalten()
             this.restzeit = 0

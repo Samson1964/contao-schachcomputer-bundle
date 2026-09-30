@@ -27,13 +27,16 @@ import {Chess} from "./vendor/chess.js/chess.js"
 // Angabe nicht übernehmen, deshalb der dynamische Import.
 const VERSION = new URL(import.meta.url).search
 const {Engine, rechenzeit, zeitBudget, zufallsZug, mitZeitlimit, nimmtRemisAn, VOLLE_STAERKE} = await import("./engine.js" + VERSION)
-const {Uhr} = await import("./uhr.js" + VERSION)
+const {Uhr, warngrenze} = await import("./uhr.js" + VERSION)
 
 /** Markierung des letzten Zuges. */
 const MARKER_ZUG = MARKER_TYPE.square
 
 /** Klasse der gerade laufenden Uhr. */
 const UHR_AKTIV = "schachcomputer-uhr--aktiv"
+
+/** Klasse einer Uhr, deren Zeit knapp wird (rote Ziffern, siehe warngrenze()). */
+const UHR_KNAPP = "schachcomputer-uhr--knapp"
 
 /** Zeit, die nach Ablauf der Frist für den ersten Zug gewartet wird, bevor der Stand geholt wird (ms). */
 const FRIST_PUFFER = 1500
@@ -586,16 +589,27 @@ class Schachcomputer {
      *
      * Die Uhren gibt es nur in gewerteten Partien; die des Computers fehlt
      * bei Partien, die vor Fassung 1.1.0 begonnen wurden (restzeitEngine -1).
+     * In gewerteten Partien bekommen beide Uhren hier ihre Warngrenze für die
+     * roten Ziffern, je nach Grundzeit der Partie (warngrenze()). Die Uhr des
+     * Computers bekommt keine, wenn es sie nicht gibt: Ein Platzhalter ohne
+     * Wert soll nicht rot werden. Übungspartien brauchen keine, ihre Uhren
+     * sind ausgeblendet.
      *
      * @param {string} gegner Beschreibung des Gegners
      */
     partieBereichZeigen(gegner) {
         const gewertet = this.modus === "gewertet"
+        const ohneEngineUhr = !gewertet || this.partie.restzeitEngine < 0
         this.feld.start.hidden = true
         this.feld.partie.hidden = false
         this.feld.gegner.textContent = gegner
         this.feld.uhren.hidden = !gewertet
-        this.feld.rahmenEngine.hidden = !gewertet || this.partie.restzeitEngine < 0
+        this.feld.rahmenEngine.hidden = ohneEngineUhr
+        if (gewertet) {
+            const grenze = warngrenze(this.partie.minuten)
+            this.uhr.warnungSetzen(grenze, this.feld.rahmenSpieler, UHR_KNAPP)
+            this.uhrEngine.warnungSetzen(ohneEngineUhr ? null : grenze, this.feld.rahmenEngine, UHR_KNAPP)
+        }
     }
 
     /**

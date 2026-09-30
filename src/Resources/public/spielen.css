@@ -111,6 +111,14 @@ body > svg.cm-chessboard-draggable-piece {
 	line-height: 1.2;
 }
 
+/*
+ * Knappe Zeit: Die Ziffern werden rot (Grenze siehe warngrenze() in uhr.js).
+ * Die Verkettung der Klassen hebt die Spezifität über Theme-Regeln für Absätze.
+ */
+.schachcomputer .schachcomputer-uhr--knapp .schachcomputer-uhr-zeit {
+	color: var(--schachcomputer-fehler);
+}
+
 .schachcomputer-status {
 	min-height: 3em;
 	font-weight: bold;
