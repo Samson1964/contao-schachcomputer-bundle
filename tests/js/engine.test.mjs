@@ -4,7 +4,7 @@
 
 import {test} from "node:test"
 import assert from "node:assert/strict"
-import {optionsBefehle, goBefehl, rechenzeit, zufallsZug, bestmove, mitZeitlimit, wasmUrlVon, wasmAdresse, Engine} from "../../src/Resources/public/engine.js"
+import {optionsBefehle, goBefehl, rechenzeit, zeitBudget, zufallsZug, bestmove, mitZeitlimit, wasmUrlVon, wasmAdresse, Engine} from "../../src/Resources/public/engine.js"
 
 const GEEICHT = {stufe: 1500, uciElo: 1500, skill: null, tiefe: null, zufall: 0, zeitMin: 1000, zeitMax: 2000}
 const SCHWACH = {stufe: 600, uciElo: null, skill: 0, tiefe: 1, zufall: 0.4, zeitMin: 1000, zeitMax: 2000}
@@ -140,6 +140,24 @@ test("nachgebaute Stufen nutzen Skill Level 0 und feste Tiefe", () => {
 test("die Rechenzeit liegt zwischen zeitMin und zeitMax", () => {
     assert.equal(rechenzeit(GEEICHT, () => 0), 1000)
     assert.equal(rechenzeit(GEEICHT, () => 0.999999), 2000)
+})
+
+test("zeitBudget: bei viel Zeit ein Dreißigstel der Restzeit ohne eine Sekunde Reserve", () => {
+    assert.equal(zeitBudget(181000, 0), 6000)
+    assert.equal(zeitBudget(20000, 0), 633, "ganze Millisekunden für go movetime")
+})
+
+test("zeitBudget: die halbe Gutschrift kommt dazu", () => {
+    assert.equal(zeitBudget(31000, 2000), 2000)
+    assert.equal(zeitBudget(4000, 1000), 600)
+})
+
+test("zeitBudget: bei knapper Uhr wenig Zeit, aber nie unter 200 ms", () => {
+    assert.equal(zeitBudget(10000, 0), 300)
+    assert.equal(zeitBudget(7000, 0), 200)
+    assert.equal(zeitBudget(2000, 0), 200)
+    assert.equal(zeitBudget(500, 0), 200)
+    assert.equal(zeitBudget(0, 0), 200)
 })
 
 test("Zufallszüge nur mit Anteil und nur unterhalb der Schwelle", () => {

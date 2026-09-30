@@ -70,10 +70,43 @@ body > svg.cm-chessboard-draggable-piece {
 	font-weight: normal;
 }
 
-.schachcomputer-uhr {
+/*
+ * Zwei Uhren nebeneinander: Stockfish, dann der Spieler. Die laufende Uhr
+ * bekommt einen Rahmen in der Hauptfarbe; auf schmalen Bildschirmen teilen
+ * sich beide die Breite.
+ */
+.schachcomputer-uhren {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .5rem;
+}
+
+.schachcomputer .schachcomputer-uhr {
+	flex: 1 1 7rem;
+	max-width: 12rem;
+	margin: 0;
+	padding: .25rem .75rem;
+	border: 2px solid var(--schachcomputer-rand);
+	border-radius: 4px;
+}
+
+.schachcomputer .schachcomputer-uhr--aktiv {
+	border-color: var(--schachcomputer-haupt);
+	background: rgba(31, 111, 178, .08);
+}
+
+.schachcomputer-uhr-name {
+	display: block;
+	font-size: .875em;
+	opacity: .8;
+}
+
+.schachcomputer-uhr-zeit {
+	display: block;
 	font-size: 2em;
 	font-variant-numeric: tabular-nums;
 	font-weight: bold;
+	line-height: 1.2;
 }
 
 .schachcomputer-status {

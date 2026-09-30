@@ -55,6 +55,25 @@ export function rechenzeit(einstellungen, zufall = Math.random) {
 }
 
 /**
+ * Zeiteinteilung des Computers in gewerteten Partien: wie viel er für den
+ * nächsten Zug höchstens verbrauchen darf.
+ *
+ * Eine Sekunde der Restzeit bleibt als Reserve für Übertragung und Anzeige
+ * außen vor, vom Rest ein Dreißigstel (als ob noch 30 Züge zu spielen wären),
+ * dazu die halbe Gutschrift. Die Stufe begrenzt die Rechenzeit ohnehin auf
+ * 1 bis 2 s; das Budget greift erst, wenn die Uhr knapp wird.
+ *
+ * @param {number} restzeitMs Restzeit des Computers in ms (restzeitEngine)
+ * @param {number} inkrementMs Zeitgutschrift je Zug in ms
+ * @returns {number} Höchste Rechenzeit in ganzen ms, nie unter 200 ms – auch
+ *                   nicht bei abgelaufener Uhr, denn ob der Zug zu spät kam,
+ *                   entscheidet der Server
+ */
+export function zeitBudget(restzeitMs, inkrementMs) {
+    return Math.floor(Math.max(200, (restzeitMs - 1000) / 30 + 0.5 * inkrementMs))
+}
+
+/**
  * Entscheidet, ob die Engine statt ihres Zuges einen Zufallszug spielt.
  *
  * @param {Object} einstellungen Einstellungen der Stufe (zufall = Anteil 0…1)

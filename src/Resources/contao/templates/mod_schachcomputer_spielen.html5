@@ -32,7 +32,16 @@
 
       <div class="schachcomputer-partie" data-partie hidden>
         <p class="schachcomputer-gegner" data-gegner></p>
-        <p class="schachcomputer-uhr" data-uhr aria-label="<?= $this->texte['uhr'] ?>"></p>
+        <div class="schachcomputer-uhren" data-uhren>
+          <p class="schachcomputer-uhr" data-uhr-rahmen="engine">
+            <span class="schachcomputer-uhr-name"><?= $this->texte['uhrNameEngine'] ?></span>
+            <span class="schachcomputer-uhr-zeit" data-uhr-engine role="timer" aria-label="<?= $this->texte['uhrEngine'] ?>"></span>
+          </p>
+          <p class="schachcomputer-uhr" data-uhr-rahmen="spieler">
+            <span class="schachcomputer-uhr-name"><?= $this->texte['uhrNameSpieler'] ?></span>
+            <span class="schachcomputer-uhr-zeit" data-uhr role="timer" aria-label="<?= $this->texte['uhr'] ?>"></span>
+          </p>
+        </div>
         <div class="schachcomputer-knoepfe">
           <button type="button" class="schachcomputer-knopf" data-aktion="abbrechen" hidden><?= $this->texte['abbrechen'] ?></button>
           <button type="button" class="schachcomputer-knopf" data-aktion="aufgeben" hidden><?= $this->texte['aufgeben'] ?></button>

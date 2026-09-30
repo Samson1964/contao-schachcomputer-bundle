@@ -14,6 +14,9 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer'] = array
 (
 	'brett'             => 'Schachbrett',
 	'uhr'               => 'Deine Restzeit',
+	'uhrEngine'         => 'Restzeit von Stockfish',
+	'uhrNameSpieler'    => 'Du',
+	'uhrNameEngine'     => 'Stockfish',
 	'laden'             => 'Wird geladen …',
 	'fehler'            => 'Das hat nicht geklappt. Bitte lade die Seite neu.',
 	'deineWertung'      => 'Deine Wertung',

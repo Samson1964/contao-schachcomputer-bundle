@@ -2,8 +2,9 @@
  * Schachcomputer-Bundle: Partien gegen Stockfish im Browser.
  *
  * Gewertete Partie: Der Server führt die Partie. Jeder Zug – auch der der
- * Engine – geht an /_schachcomputer/zug; maßgeblich sind Stand und Uhr des
- * Servers. chess.js dient nur der sofortigen Zugprüfung und dem Aufbau der
+ * Engine – geht an /_schachcomputer/zug; maßgeblich sind Stand und Uhren des
+ * Servers (Spieler und, seit 1.1.0, Computer; die Uhren hier zeigen nur an).
+ * chess.js dient nur der sofortigen Zugprüfung und dem Aufbau der
  * Züge für Stockfish. Ob die Partie zu Ende ist, entscheidet allein der
  * Server (seine Wiederholungsprüfung weicht in einem Randfall von chess.js ab).
  *
@@ -23,11 +24,14 @@ import {Chess} from "./vendor/chess.js/chess.js"
 // alte Fassung aus seinem Zwischenspeicher. Ein statischer Import kann die
 // Angabe nicht übernehmen, deshalb der dynamische Import.
 const VERSION = new URL(import.meta.url).search
-const {Engine, rechenzeit, zufallsZug, mitZeitlimit} = await import("./engine.js" + VERSION)
+const {Engine, rechenzeit, zeitBudget, zufallsZug, mitZeitlimit} = await import("./engine.js" + VERSION)
 const {Uhr} = await import("./uhr.js" + VERSION)
 
 /** Markierung des letzten Zuges. */
 const MARKER_ZUG = MARKER_TYPE.square
+
+/** Klasse der gerade laufenden Uhr. */
+const UHR_AKTIV = "schachcomputer-uhr--aktiv"
 
 /** Zeit, die nach Ablauf der Frist für den ersten Zug gewartet wird, bevor der Stand geholt wird (ms). */
 const FRIST_PUFFER = 1500
@@ -95,7 +99,11 @@ class Schachcomputer {
             keineBedenkzeit: feld("[data-keine-bedenkzeit]"),
             partie: feld("[data-partie]"),
             gegner: feld("[data-gegner]"),
+            uhren: feld("[data-uhren]"),
             uhr: feld("[data-uhr]"),
+            uhrEngine: feld("[data-uhr-engine]"),
+            rahmenSpieler: feld('[data-uhr-rahmen="spieler"]'),
+            rahmenEngine: feld('[data-uhr-rahmen="engine"]'),
             status: feld("[data-status]"),
             gast: feld("[data-gast]"),
             knoepfe: {
@@ -115,6 +123,9 @@ class Schachcomputer {
         })
         this.engine = new Engine(this.konfiguration.engineUrl)
         this.uhr = new Uhr(this.feld.uhr, () => this.partieNeuLaden())
+        // Läuft die Uhr des Computers hier ab, geschieht nichts: Ob sein Zug
+        // zu spät kam, entscheidet der Server, wenn der Zug eintrifft
+        this.uhrEngine = new Uhr(this.feld.uhrEngine, () => {})
         this.eingabe = this.eingabe.bind(this)
 
         // Erhöht sich bei jedem Neuanfang, Neuladen und Aufgeben. Antworten und
@@ -165,7 +176,7 @@ class Schachcomputer {
      * Räumt auf, wenn die Seite verlassen wird oder in den bfcache wandert.
      *
      * Die Generation steigt, damit eine abgewiesene Suche oder eine späte
-     * Antwort des Servers nichts mehr anrichtet; Uhr und Frist ruhen, bis
+     * Antwort des Servers nichts mehr anrichtet; Uhren und Frist ruhen, bis
      * pageshow den Stand neu lädt. Die Zugeingabe wird abgeschaltet, sonst
      * meldet cm-chessboard beim Zurückkommen „moveInput already enabled",
      * weil enableMoveInput() kein zweites Mal ohne disableMoveInput() dazwischen
@@ -175,7 +186,7 @@ class Schachcomputer {
     seiteVerlassen() {
         this.generation++
         clearTimeout(this.fristTimer)
-        this.uhr.anhalten()
+        this.uhrenAnhalten()
         this.brett.disableMoveInput()
         this.engine.beenden()
     }
@@ -334,7 +345,7 @@ class Schachcomputer {
             return
         }
         const generation = ++this.generation
-        this.uhr.anhalten()
+        this.uhrenAnhalten()
         this.brett.disableMoveInput()
         let antwort
         try {
@@ -444,7 +455,7 @@ class Schachcomputer {
     startZeigen() {
         this.generation++
         clearTimeout(this.fristTimer)
-        this.uhr.anhalten()
+        this.uhrenAnhalten()
         this.brett.disableMoveInput()
         this.brett.removeMarkers()
         this.brett.setOrientation(COLOR.white)
@@ -563,13 +574,18 @@ class Schachcomputer {
     /**
      * Blendet das Startformular aus und den Partiebereich ein.
      *
+     * Die Uhren gibt es nur in gewerteten Partien; die des Computers fehlt
+     * bei Partien, die vor Fassung 1.1.0 begonnen wurden (restzeitEngine -1).
+     *
      * @param {string} gegner Beschreibung des Gegners
      */
     partieBereichZeigen(gegner) {
+        const gewertet = this.modus === "gewertet"
         this.feld.start.hidden = true
         this.feld.partie.hidden = false
         this.feld.gegner.textContent = gegner
-        this.feld.uhr.hidden = this.modus !== "gewertet"
+        this.feld.uhren.hidden = !gewertet
+        this.feld.rahmenEngine.hidden = !gewertet || this.partie.restzeitEngine < 0
     }
 
     /**
@@ -596,6 +612,8 @@ class Schachcomputer {
             this.spielerIstAmZug()
         } else {
             this.uhr.zeigen(this.partie.restzeit)
+            this.engineUhrStellen()
+            this.uhrHervorheben(this.partie.engineUhrLaeuft ? "engine" : null)
             this.engineZieht()
         }
     }
@@ -608,6 +626,10 @@ class Schachcomputer {
      * zu starten hieße, nach 100 ms erneut zu fragen – mehrmals, mit jedes Mal
      * neu aufgebautem Brett. Stattdessen wird einmal nach dem Ausgleich
      * nachgefragt; ein Zug in dieser Zeit hebt die Nachfrage auf.
+     *
+     * Die Uhr des Computers steht und zeigt seine Restzeit nach dem letzten
+     * Zug. Hervorgehoben wird die Uhr des Spielers nur, wenn sie läuft – für
+     * den ersten Zug gibt es stattdessen die Frist.
      */
     spielerIstAmZug() {
         this.zugBeginn = performance.now()
@@ -623,6 +645,8 @@ class Schachcomputer {
             } else {
                 this.uhr.zeigen(partie.restzeit)
             }
+            this.engineUhrStellen()
+            this.uhrHervorheben(partie.uhrLaeuft ? "spieler" : null)
             if (partie.ersterZugFrist !== null) {
                 text = this.texte.ersterZug.replace("%s", Math.ceil(partie.ersterZugFrist / 1000))
                 clearTimeout(this.fristTimer)
@@ -707,13 +731,19 @@ class Schachcomputer {
             this.weiter()
             return
         }
-        this.uhr.anhalten()
+        this.uhrenAnhalten()
         await this.zugMelden(zug.lan, Math.round(performance.now() - this.zugBeginn))
     }
 
     /**
      * Lässt Stockfish ziehen – oder würfelt bei schwachen Stufen einen
      * Zufallszug aus. Der Zug kommt nie schneller als nach der Rechenzeit.
+     *
+     * In gewerteten Partien mit Uhr des Computers begrenzt zeitBudget() die
+     * Rechenzeit, damit der Computer nicht auf Zeit verliert; weil dieselbe
+     * Zeit auch das Warten auf die Mindestzeit bestimmt, zieht er bei knapper
+     * Uhr auch auf schwachen Stufen schneller. Übungspartien und Partien ohne
+     * Uhr des Computers (vor 1.1.0) rechnen wie bisher.
      *
      * Scheitert Stockfish in einer gewerteten Partie auch im zweiten Versuch
      * (siehe engineSuche()), erscheint eine eigene Meldung; der Server wertet
@@ -723,7 +753,10 @@ class Schachcomputer {
         const generation = this.generation
         const halbzuege = this.chess.history().length
         const einstellungen = this.partie.einstellungen
-        const zeit = rechenzeit(einstellungen)
+        let zeit = rechenzeit(einstellungen)
+        if (this.modus === "gewertet" && this.partie.restzeitEngine >= 0) {
+            zeit = Math.min(zeit, zeitBudget(this.partie.restzeitEngine, this.partie.inkrement * 1000))
+        }
         const beginn = performance.now()
         this.status(this.texte.engineDenkt)
         let uci
@@ -763,6 +796,9 @@ class Schachcomputer {
             this.weiter()
             return
         }
+        // Der Zug ist unterwegs: Die Uhr des Computers steht, bis die Antwort
+        // des Servers seine neue Restzeit bringt
+        this.uhrenAnhalten()
         await this.zugMelden(uci, null)
     }
 
@@ -847,7 +883,7 @@ class Schachcomputer {
     async endeMelden(url) {
         const generation = ++this.generation
         clearTimeout(this.fristTimer)
-        this.uhr.anhalten()
+        this.uhrenAnhalten()
         this.brett.disableMoveInput()
         let antwort
         try {
@@ -874,6 +910,8 @@ class Schachcomputer {
     ende() {
         clearTimeout(this.fristTimer)
         this.uhr.zeigen(this.partie.restzeit)
+        this.engineUhrStellen()
+        this.uhrHervorheben(null)
         this.brett.disableMoveInput()
         let text = this.ergebnisText(this.partie.status, this.partie.punkte, this.partie.grund)
         if (this.partie.verrechnet) {
@@ -1004,6 +1042,42 @@ class Schachcomputer {
 
     // ------------------------------------------------------------------
     // Anzeige
+
+    /**
+     * Stellt die Uhr des Computers nach dem Stand des Servers (this.partie).
+     *
+     * Rechnet der Computer gerade (engineUhrLaeuft), läuft sie ab der
+     * gemeldeten Restzeit, sonst steht sie. Partien ohne Uhr des Computers
+     * (-1) zeigen 0; ihr Rahmen ist ohnehin ausgeblendet.
+     */
+    engineUhrStellen() {
+        const partie = this.partie
+        if (partie.engineUhrLaeuft) {
+            this.uhrEngine.starten(partie.restzeitEngine)
+        } else {
+            this.uhrEngine.zeigen(Math.max(0, partie.restzeitEngine))
+        }
+    }
+
+    /**
+     * Hält beide Uhren an und nimmt die Hervorhebung weg; die Anzeigen
+     * bleiben stehen.
+     */
+    uhrenAnhalten() {
+        this.uhr.anhalten()
+        this.uhrEngine.anhalten()
+        this.uhrHervorheben(null)
+    }
+
+    /**
+     * Hebt die gerade laufende Uhr hervor.
+     *
+     * @param {string|null} seite „spieler", „engine" oder null für keine
+     */
+    uhrHervorheben(seite) {
+        this.feld.rahmenSpieler.classList.toggle(UHR_AKTIV, seite === "spieler")
+        this.feld.rahmenEngine.classList.toggle(UHR_AKTIV, seite === "engine")
+    }
 
     /**
      * Blendet die Knöpfe passend zum Stand ein und aus.
