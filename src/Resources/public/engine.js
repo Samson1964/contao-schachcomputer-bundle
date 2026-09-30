@@ -54,6 +54,12 @@ export function rechenzeit(einstellungen, zufall = Math.random) {
     return einstellungen.zeitMin + Math.floor(zufall() * (einstellungen.zeitMax - einstellungen.zeitMin + 1))
 }
 
+/** Ausgleich für die Übertragung, den der Server dem Computer gewährt (ms); entspricht Uhr::AUSGLEICH_MS. */
+const AUSGLEICH_MS = 1000
+
+/** Abstand, den der Computer zum Ende seiner verfügbaren Zeit hält (ms). */
+const SICHERHEITSABSTAND_MS = 500
+
 /**
  * Zeiteinteilung des Computers in gewerteten Partien: wie viel er für den
  * nächsten Zug höchstens verbrauchen darf.
@@ -63,6 +69,13 @@ export function rechenzeit(einstellungen, zufall = Math.random) {
  * dazu die halbe Gutschrift. Die Stufe begrenzt die Rechenzeit ohnehin auf
  * 1 bis 2 s; das Budget greift erst, wenn die Uhr knapp wird.
  *
+ * Zusätzlich gedeckelt: Die Gutschrift kommt erst mit dem Zug und steht zum
+ * Rechnen nicht zur Verfügung. Verfügbar sind nur die Restzeit und der
+ * Ausgleich, den der Server für die Übertragung gewährt (AUSGLEICH_MS),
+ * abzüglich eines Sicherheitsabstands. Ohne den Deckel dürfte der Computer
+ * bei Restzeit 300 ms und 3 s Gutschrift knapp 1,5 s rechnen und
+ * verlöre auf Zeit.
+ *
  * @param {number} restzeitMs Restzeit des Computers in ms (restzeitEngine)
  * @param {number} inkrementMs Zeitgutschrift je Zug in ms
  * @returns {number} Höchste Rechenzeit in ganzen ms, nie unter 200 ms – auch
@@ -70,7 +83,9 @@ export function rechenzeit(einstellungen, zufall = Math.random) {
  *                   entscheidet der Server
  */
 export function zeitBudget(restzeitMs, inkrementMs) {
-    return Math.floor(Math.max(200, (restzeitMs - 1000) / 30 + 0.5 * inkrementMs))
+    const budget = Math.max(200, (restzeitMs - 1000) / 30 + 0.5 * inkrementMs)
+    const verfuegbar = Math.max(200, restzeitMs + AUSGLEICH_MS - SICHERHEITSABSTAND_MS)
+    return Math.floor(Math.min(budget, verfuegbar))
 }
 
 /**

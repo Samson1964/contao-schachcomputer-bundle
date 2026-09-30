@@ -160,6 +160,16 @@ test("zeitBudget: bei knapper Uhr wenig Zeit, aber nie unter 200 ms", () => {
     assert.equal(zeitBudget(0, 0), 200)
 })
 
+test("zeitBudget: nie mehr, als an Zeit tatsächlich zur Verfügung steht", () => {
+    // Die Gutschrift kommt erst mit dem Zug; zum Rechnen stehen nur Restzeit
+    // und 1 s Ausgleich zur Verfügung, abzüglich 0,5 s Sicherheitsabstand
+    assert.equal(zeitBudget(300, 3000), 800, "ohne Deckel wären es 1476 ms und damit mehr als die Uhr hergibt")
+    assert.equal(zeitBudget(1000, 4000), 1500)
+    assert.equal(zeitBudget(0, 3000), 500, "auch bei abgelaufener Uhr nur der Ausgleich abzüglich Abstand")
+    assert.equal(zeitBudget(0, 0), 200)
+    assert.ok(zeitBudget(300, 3000) <= 300 + 1000, "bleibt innerhalb der Uhr samt Ausgleich")
+})
+
 test("Zufallszüge nur mit Anteil und nur unterhalb der Schwelle", () => {
     const legale = ["e2e4", "d2d4", "g1f3"]
     assert.equal(zufallsZug(GEEICHT, legale, () => 0), null)
