@@ -23,8 +23,8 @@ namespace Schachbulle\ContaoSchachcomputerBundle\Partie;
  * beide zum Zeitpunkt uhrSeit. Wer am Zug ist, dessen Uhr läuft seit uhrSeit
  * (beim Spieler erst ab seinem zweiten Zug); die andere steht. Ist die
  * Engine am Zug, markiert uhrSeit zugleich den Beginn der Engine-Frist.
- * restzeitEngine = -1 kennzeichnet Partien, die vor Fassung 1.1.0 begonnen
- * wurden und keine Uhr des Computers haben.
+ * restzeitEngine = -1 kennzeichnet Übungspartien und Partien, die vor
+ * Fassung 1.1.0 begonnen wurden: Sie haben keine Uhr des Computers.
  */
 final class Partie
 {
