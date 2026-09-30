@@ -65,6 +65,26 @@ class PgnTest extends TestCase
 	}
 
 	/**
+	 * Ein Remis durch Einigung steht als 1/2-1/2 in der PGN und gilt als
+	 * regulär beendet.
+	 */
+	public function testRemisDurchEinigung(): void
+	{
+		$t0 = 1790000000000;
+		$partie = Ablauf::starten(7, '', array('id' => 1, 'minuten' => 3, 'inkrement' => 2, 'klasse' => 'blitz'), 1500, 'w', $t0);
+		// 19 eigene Züge gesetzt statt einzeln gespielt (siehe AblaufTest::gespielt())
+		$partie->zuege = \array_slice(explode(' ', AblaufTest::ZUEGE), 0, 38);
+		$partie->uhrSeit = $t0 + 38000;
+
+		Ablauf::remis($partie, 38, true, $t0 + 40000);
+		$pgn = Pgn::erzeugen($partie, 'Mustermann, Max', 'example.org');
+
+		$this->assertStringContainsString('[Result "1/2-1/2"]', $pgn);
+		$this->assertStringContainsString('[Termination "normal"]', $pgn);
+		$this->assertMatchesRegularExpression('/19\. Qd2\s+h5\s+1\/2-1\/2\n$/', $pgn);
+	}
+
+	/**
 	 * Übungspartien ohne Zeitkontrolle, unbeendete mit „*".
 	 */
 	public function testUebung(): void

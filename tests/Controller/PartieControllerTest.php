@@ -20,13 +20,16 @@ use Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst;
 use Schachbulle\ContaoSchachcomputerBundle\Statistik\Statistik;
 use Schachbulle\ContaoSchachcomputerBundle\Tests\Datenbank;
+use Schachbulle\ContaoSchachcomputerBundle\Tests\Partie\AblaufTest;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Glicko2;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsdienst;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsrechner;
+use Symfony\Component\Config\FileLocator;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\Session;
 use Symfony\Component\HttpFoundation\Session\Storage\MockArraySessionStorage;
+use Symfony\Component\Routing\Loader\YamlFileLoader;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorage;
 use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
 
@@ -227,6 +230,98 @@ class PartieControllerTest extends TestCase
 	}
 
 	/**
+	 * Remis anbieten über die Schnittstelle: remisErlaubt in den
+	 * Partiedaten, veraltete Zugnummer, Ablehnung mit weiterlaufender Uhr,
+	 * zu frühes zweites Angebot und Annahme mit Verrechnung als Remis.
+	 */
+	public function testRemisAnbieten(): void
+	{
+		$controller = $this->controller();
+		$partie = $this->daten($controller->start($this->post(array('bedenkzeit' => $this->blitz, 'stufe' => 1500, 'farbe' => 'w'))))['partie'];
+		$this->assertFalse($partie['remisErlaubt']);
+
+		$zuege = explode(' ', AblaufTest::ZUEGE);
+
+		for ($index = 0; $index < 38; ++$index) {
+			$this->jetzt = self::T0 + ($index + 1) * 1000;
+			$partie = $this->daten($controller->zug($this->post(array('partie' => $partie['id'], 'zugnummer' => $index, 'zug' => $zuege[$index], 'denkzeit' => null))))['partie'];
+
+			// Erst vor dem 20. eigenen Zug, und nie, solange der Computer am Zug ist
+			$this->assertSame(37 === $index, $partie['remisErlaubt'], 'nach Halbzug '.($index + 1));
+		}
+
+		$this->jetzt = self::T0 + 39000;
+		$veraltet = $controller->remis($this->post(array('partie' => $partie['id'], 'zugnummer' => 37, 'angenommen' => true)));
+		$this->assertSame(409, $veraltet->getStatusCode());
+		$this->assertSame('veraltet', $this->daten($veraltet)['fehler']);
+
+		// 19 Züge je 1 s ohne Browsermessung: 180 s + 18 × (2 s Gutschrift − 1 s) = 198 s; seit 1 s läuft die Uhr
+		$abgelehnt = $this->daten($controller->remis($this->post(array('partie' => $partie['id'], 'zugnummer' => 38, 'angenommen' => false))))['partie'];
+		$this->assertSame('laeuft', $abgelehnt['status']);
+		$this->assertTrue($abgelehnt['spielerAmZug']);
+		$this->assertTrue($abgelehnt['uhrLaeuft']);
+		$this->assertSame(197000, $abgelehnt['restzeit']);
+		$this->assertFalse($abgelehnt['remisErlaubt']);
+
+		$zweites = $controller->remis($this->post(array('partie' => $partie['id'], 'zugnummer' => 38, 'angenommen' => true)));
+		$this->assertSame(422, $zweites->getStatusCode());
+		$this->assertSame('nicht_erlaubt', $this->daten($zweites)['fehler']);
+
+		// Fünf eigene Züge später ginge es wieder; hier abgekürzt über die Datenbank
+		$this->db->executeStatement('UPDATE tl_schachcomputer_partie SET remisAngebot=14 WHERE id=?', array($partie['id']));
+		$this->assertTrue($this->daten($controller->stand($this->get($partie['id'])))['partie']['remisErlaubt']);
+
+		$this->jetzt = self::T0 + 40000;
+		$ende = $this->daten($controller->remis($this->post(array('partie' => $partie['id'], 'zugnummer' => 38, 'angenommen' => true))))['partie'];
+		$this->assertSame('beendet', $ende['status']);
+		$this->assertSame('einigung', $ende['grund']);
+		$this->assertSame('1/2-1/2', $ende['ergebnis']);
+		$this->assertSame(0.5, $ende['punkte']);
+		$this->assertTrue($ende['verrechnet']);
+		$this->assertFalse($ende['remisErlaubt']);
+	}
+
+	/**
+	 * Unvollständige Angaben zum Remisangebot ergeben 400, eine fremde
+	 * Partie 404.
+	 */
+	public function testRemisEingabeUndFremdePartie(): void
+	{
+		$controller = $this->controller();
+
+		$this->assertSame(400, $controller->remis($this->post(array('partie' => 1, 'zugnummer' => 38)))->getStatusCode());
+		$this->assertSame(400, $controller->remis($this->post(array('partie' => 1, 'zugnummer' => 38, 'angenommen' => 'ja')))->getStatusCode());
+		$this->assertSame(400, $controller->remis($this->post(array('partie' => '1', 'zugnummer' => 38, 'angenommen' => true)))->getStatusCode());
+		$this->assertSame(400, $controller->remis($this->post(array('partie' => 1, 'angenommen' => false)))->getStatusCode());
+
+		$this->anmelden(7);
+		$id = $this->daten($controller->start($this->post(array('bedenkzeit' => $this->blitz, 'stufe' => 1500, 'farbe' => 'w'))))['partie']['id'];
+
+		$this->anmelden(8);
+		$fremd = $controller->remis($this->post(array('partie' => $id, 'zugnummer' => 0, 'angenommen' => true)));
+		$this->assertSame(404, $fremd->getStatusCode());
+		$this->assertSame('nicht_gefunden', $this->daten($fremd)['fehler']);
+	}
+
+	/**
+	 * Die Route für das Remisangebot ist eingerichtet wie die übrigen
+	 * POST-Routen und zeigt auf eine vorhandene Methode des Controllers.
+	 */
+	public function testRemisRoute(): void
+	{
+		$routen = (new YamlFileLoader(new FileLocator(__DIR__.'/../../src/Resources/config')))->load('routes.yaml');
+		$route = $routen->get('schachcomputer_remis');
+
+		$this->assertNotNull($route);
+		$this->assertSame('/_schachcomputer/remis', $route->getPath());
+		$this->assertSame(array('POST'), $route->getMethods());
+		$this->assertSame(PartieController::class.'::remis', $route->getDefault('_controller'));
+		$this->assertSame('frontend', $route->getDefault('_scope'));
+		$this->assertFalse($route->getDefault('_token_check'));
+		$this->assertTrue(method_exists(PartieController::class, 'remis'));
+	}
+
+	/**
 	 * Übungspartien speichern nur Mitglieder.
 	 */
 	public function testUebungNurFuerMitglieder(): void
@@ -287,7 +382,7 @@ class PartieControllerTest extends TestCase
 	public function testAktionenInitialisierenDasFramework(): void
 	{
 		$framework = $this->createMock(ContaoFramework::class);
-		$framework->expects($this->exactly(6))->method('initialize');
+		$framework->expects($this->exactly(7))->method('initialize');
 
 		$controller = $this->controller($framework);
 
@@ -296,6 +391,7 @@ class PartieControllerTest extends TestCase
 		$controller->zug($this->post(array()));
 		$controller->aufgeben($this->post(array()));
 		$controller->abbrechen($this->post(array()));
+		$controller->remis($this->post(array()));
 		$controller->uebung($this->post(array()));
 	}
 

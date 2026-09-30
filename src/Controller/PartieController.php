@@ -14,6 +14,7 @@ namespace Schachbulle\ContaoSchachcomputerBundle\Controller;
 use Contao\CoreBundle\Framework\ContaoFramework;
 use Contao\FrontendUser;
 use Schachbulle\ContaoSchachcomputerBundle\Engine\Stufen;
+use Schachbulle\ContaoSchachcomputerBundle\Partie\Ablauf;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partie;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\PartieFehler;
@@ -240,6 +241,43 @@ class PartieController
 	}
 
 	/**
+	 * Meldet die Entscheidung von Stockfish über ein Remisangebot (POST,
+	 * JSON {partie, zugnummer, angenommen}).
+	 *
+	 * Stockfish entscheidet im Browser; der Server vertraut dem Ergebnis wie
+	 * den Engine-Zügen und prüft nur Uhr, Zugnummer und Rahmenregeln (siehe
+	 * Ablauf::remis()).
+	 *
+	 * @param Request $request Die Anfrage
+	 *
+	 * @return JsonResponse {partie: {...}}; 415, 400 oder Status aus PartieFehler
+	 *                      (422, wenn ein Angebot gerade nicht erlaubt ist)
+	 */
+	public function remis(Request $request): JsonResponse
+	{
+		$this->framework->initialize();
+
+		$daten = $this->eingabe($request);
+
+		if ($daten instanceof JsonResponse) {
+			return $daten;
+		}
+
+		if (!\is_int($daten['partie'] ?? null) || !\is_int($daten['zugnummer'] ?? null) || !\is_bool($daten['angenommen'] ?? null)) {
+			return $this->antwort(array('fehler' => 'Erwartet werden partie, zugnummer (Zahlen) und angenommen (true/false).'), 400);
+		}
+
+		return $this->aktion($request, fn (Spieler $spieler, SessionInterface $session, int $jetzt): Partie => $this->partiedienst->remis(
+			$spieler,
+			$session,
+			$daten['partie'],
+			$daten['zugnummer'],
+			$daten['angenommen'],
+			$jetzt
+		));
+	}
+
+	/**
 	 * Speichert eine Übungspartie (POST, JSON {stufe, farbe, zuege, aufgegeben}).
 	 *
 	 * Nur für Mitglieder; Gäste haben kein Partiearchiv.
@@ -320,6 +358,8 @@ class PartieController
 	 * Für den Computer gilt dasselbe: restzeitEngine ist bei laufender Uhr
 	 * (engineUhrLaeuft) auf jetzt umgerechnet, sonst der gespeicherte Wert;
 	 * -1 heißt, die Partie hat keine Uhr des Computers (vor Fassung 1.1.0).
+	 * remisErlaubt sagt, ob der Spieler jetzt Remis anbieten darf (danach
+	 * richtet sich der Knopf „Remis anbieten“).
 	 *
 	 * @param Partie $partie Die Partie
 	 * @param int    $jetzt  Aktueller Zeitpunkt in ms
@@ -354,6 +394,7 @@ class PartieController
 			'ersterZugFrist'  => $ersterZug ? max(0, Uhr::ERSTER_ZUG_MS - ($jetzt - $partie->uhrSeit)) : null,
 			'engineUhrLaeuft' => $engineUhrLaeuft,
 			'restzeitEngine'  => $engineUhrLaeuft ? Uhr::verbleibend($partie->restzeitEngine, $partie->uhrSeit, $jetzt) : $partie->restzeitEngine,
+			'remisErlaubt'    => Ablauf::remisErlaubt($partie),
 			'verrechnet'      => $partie->verrechnet,
 			'wertungVorher'   => (int) round($partie->wertungVorher),
 			'wertungNachher'  => (int) round($partie->wertungNachher),

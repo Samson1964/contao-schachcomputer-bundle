@@ -29,6 +29,9 @@ use Schachbulle\ContaoSchachcomputerBundle\Engine\Stufen;
  * Engine-Zug muss außerdem innerhalb von 60 s eintreffen, sonst gilt die
  * Partie als verlassen und ist verloren – vor dem ersten eigenen Zug wird
  * stattdessen abgebrochen.
+ *
+ * Remisangebot (seit Fassung 1.1.0): Ob Stockfish annimmt, entscheidet der
+ * Browser; der Server prüft nur die Rahmenregeln (siehe remisErlaubt()).
  */
 final class Ablauf
 {
@@ -36,6 +39,18 @@ final class Ablauf
 	 * Höchstzahl an Halbzügen einer Übungspartie, die angenommen wird.
 	 */
 	public const MAX_UEBUNG_HALBZUEGE = 600;
+
+	/**
+	 * Eigene Züge, die der Spieler mindestens gemacht haben muss, bevor er
+	 * Remis anbieten darf: Das erste Angebot ist vor seinem 20. Zug möglich.
+	 */
+	public const REMIS_AB_EIGENEN_ZUEGEN = 19;
+
+	/**
+	 * Eigene Züge, die nach einem Remisangebot vergehen müssen, bevor der
+	 * Spieler erneut anbieten darf.
+	 */
+	public const REMIS_ABSTAND = 5;
 
 	/**
 	 * Legt eine neue gewertete Partie an.
@@ -270,6 +285,79 @@ final class Ablauf
 		}
 
 		self::abbruchSetzen($partie, 'abbruch', $jetztMs);
+	}
+
+	/**
+	 * Prüft, ob der Spieler jetzt Remis anbieten darf.
+	 *
+	 * Erlaubt nur in einer laufenden gewerteten Partie, wenn der Spieler am
+	 * Zug ist und schon mindestens REMIS_AB_EIGENEN_ZUEGEN Züge gemacht hat;
+	 * nach einem Angebot erst wieder REMIS_ABSTAND eigene Züge später. Ob
+	 * seine Uhr inzwischen abgelaufen ist, prüft diese Methode nicht – das
+	 * übernimmt pruefen(), bevor remis() die Regeln anwendet.
+	 *
+	 * @param Partie $partie Die Partie
+	 *
+	 * @return bool true, wenn ein Angebot jetzt zulässig ist
+	 */
+	public static function remisErlaubt(Partie $partie): bool
+	{
+		if (!$partie->gewertet || Partie::LAEUFT !== $partie->status || !$partie->spielerAmZug()) {
+			return false;
+		}
+
+		// remisAngebot 0 (noch kein Angebot) macht die zweite Grenze wirkungslos
+		return $partie->eigeneZuege() >= max(self::REMIS_AB_EIGENEN_ZUEGEN, $partie->remisAngebot + self::REMIS_ABSTAND);
+	}
+
+	/**
+	 * Nimmt die Entscheidung von Stockfish über ein Remisangebot des Spielers an.
+	 *
+	 * Stockfish rechnet im Browser; der Server vertraut seiner Entscheidung
+	 * wie den Engine-Zügen und prüft nur die Rahmenregeln. Zuerst zählen die
+	 * Fristen wie in pruefen(): Ist die Uhr des Spielers samt Ausgleich
+	 * abgelaufen – die Prüfung des Angebots kostet ihn Bedenkzeit –, endet die
+	 * Partie auf Zeit, und die Methode kehrt ohne Fehler zurück; der Aufrufer
+	 * erkennt es am Status. Sonst gilt:
+	 *
+	 * - angenommen: Die Partie endet remis, Grund „einigung“.
+	 * - abgelehnt: Die Partie läuft weiter. uhrSeit und restzeit bleiben
+	 *   unverändert, die Uhr des Spielers läuft also ohne Unterbrechung weiter.
+	 *
+	 * In beiden Fällen merkt sich remisAngebot die Zahl der eigenen Züge.
+	 *
+	 * @param Partie $partie     Die laufende Partie
+	 * @param int    $zugnummer  Zahl der Halbzüge, die der Browser kennt
+	 * @param bool   $angenommen Ob Stockfish das Remis annimmt
+	 * @param int    $jetztMs    Aktueller Zeitpunkt
+	 *
+	 * @throws PartieFehler BEENDET, wenn die Partie nicht mehr läuft;
+	 *                      VERALTET bei abweichender Zugnummer;
+	 *                      NICHT_ERLAUBT, wenn remisErlaubt() das Angebot nicht zulässt
+	 */
+	public static function remis(Partie $partie, int $zugnummer, bool $angenommen, int $jetztMs): void
+	{
+		if (Partie::LAEUFT !== $partie->status) {
+			throw new PartieFehler(PartieFehler::BEENDET);
+		}
+
+		if ($zugnummer !== $partie->zugnummer()) {
+			throw new PartieFehler(PartieFehler::VERALTET);
+		}
+
+		if (self::pruefen($partie, $jetztMs)) {
+			return;
+		}
+
+		if (!self::remisErlaubt($partie)) {
+			throw new PartieFehler(PartieFehler::NICHT_ERLAUBT);
+		}
+
+		$partie->remisAngebot = $partie->eigeneZuege();
+
+		if ($angenommen) {
+			self::beenden($partie, 'einigung', 0.5, $jetztMs);
+		}
 	}
 
 	/**

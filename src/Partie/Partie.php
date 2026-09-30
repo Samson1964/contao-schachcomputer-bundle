@@ -90,7 +90,8 @@ final class Partie
 
 	/**
 	 * matt, patt, material, wiederholung, fuenfzig, zeit, aufgabe,
-	 * verlassen, abbruch, erster_zug oder unbeendet.
+	 * einigung (angenommenes Remisangebot), verlassen, abbruch, erster_zug
+	 * oder unbeendet.
 	 */
 	public string $grund = '';
 
@@ -111,6 +112,13 @@ final class Partie
 	 * Computers hat (Übungspartien und Partien von vor Fassung 1.1.0).
 	 */
 	public int $restzeitEngine = -1;
+
+	/**
+	 * Zahl der eigenen Züge des Spielers beim letzten Remisangebot; 0, solange
+	 * er noch keins gemacht hat. Ein neues Angebot ist erst fünf eigene Züge
+	 * später möglich (siehe Ablauf::remisErlaubt()).
+	 */
+	public int $remisAngebot = 0;
 
 	public int $uhrSeit = 0;
 
@@ -155,6 +163,7 @@ final class Partie
 		$partie->zeiten = \is_array($zeiten) ? array_map('intval', $zeiten) : array();
 		$partie->restzeit = (int) $zeile['restzeit'];
 		$partie->restzeitEngine = (int) $zeile['restzeitEngine'];
+		$partie->remisAngebot = (int) $zeile['remisAngebot'];
 		$partie->uhrSeit = (int) $zeile['uhrSeit'];
 		$partie->beginn = (int) $zeile['beginn'];
 		$partie->ende = (int) $zeile['ende'];
@@ -193,6 +202,7 @@ final class Partie
 			'zugnummer'      => $this->zugnummer(),
 			'restzeit'       => $this->restzeit,
 			'restzeitEngine' => $this->restzeitEngine,
+			'remisAngebot'   => $this->remisAngebot,
 			'uhrSeit'        => $this->uhrSeit,
 			'beginn'         => $this->beginn,
 			'ende'           => $this->ende,

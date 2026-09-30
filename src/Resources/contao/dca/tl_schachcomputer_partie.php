@@ -188,6 +188,11 @@ $GLOBALS['TL_DCA']['tl_schachcomputer_partie'] = array
 		(
 			'sql' => "int(10) NOT NULL default '-1'",
 		),
+		// Zahl der eigenen Züge beim letzten Remisangebot; 0 = noch keins
+		'remisAngebot' => array
+		(
+			'sql' => "smallint(5) unsigned NOT NULL default '0'",
+		),
 		'uhrSeit' => array
 		(
 			'sql' => "bigint(20) unsigned NOT NULL default '0'",

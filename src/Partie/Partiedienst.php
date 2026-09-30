@@ -321,6 +321,35 @@ class Partiedienst
 	}
 
 	/**
+	 * Nimmt die Entscheidung von Stockfish über ein Remisangebot an.
+	 *
+	 * Angenommen endet die Partie remis und wird verrechnet; die Statistik
+	 * zählt sie als Remis. Abgelehnt wird nur die Zahl der eigenen Züge beim
+	 * Angebot gespeichert, und die Partie läuft samt Uhr des Spielers weiter.
+	 * Ist vorher eine Frist abgelaufen (etwa die Uhr des Spielers), endet die
+	 * Partie deswegen, und über das Angebot wird nicht mehr entschieden.
+	 *
+	 * @param Spieler               $spieler    Mitglied oder Gast
+	 * @param SessionInterface|null $session    Sitzung (für Gastwertungen)
+	 * @param int                   $partieId   ID der Partie
+	 * @param int                   $zugnummer  Zahl der Halbzüge, die der Browser kennt
+	 * @param bool                  $angenommen Ob Stockfish das Remis annimmt
+	 * @param int                   $jetztMs    Aktueller Zeitpunkt
+	 *
+	 * @throws PartieFehler Siehe Ablauf::remis(), dazu NICHT_GEFUNDEN für
+	 *                      fremde Partien und VERALTET, wenn eine andere
+	 *                      Anfrage schneller war
+	 *
+	 * @return Partie Die Partie nach der Entscheidung
+	 */
+	public function remis(Spieler $spieler, ?SessionInterface $session, int $partieId, int $zugnummer, bool $angenommen, int $jetztMs): Partie
+	{
+		return $this->ausfuehren($spieler, $session, $partieId, $jetztMs, static function (Partie $partie) use ($zugnummer, $angenommen, $jetztMs): void {
+			Ablauf::remis($partie, $zugnummer, $angenommen, $jetztMs);
+		});
+	}
+
+	/**
 	 * Prüft die Fristen einer Partie und speichert, falls sie dabei endet.
 	 *
 	 * Ist die Partie inzwischen weitergegangen (das Speichern scheitert an
@@ -429,7 +458,7 @@ class Partiedienst
 	}
 
 	/**
-	 * Gemeinsamer Ablauf von Zug, Aufgabe und Abbruch.
+	 * Gemeinsamer Ablauf von Zug, Aufgabe, Abbruch und Remisangebot.
 	 *
 	 * Erst werden die Fristen geprüft – ist eine abgelaufen, endet die
 	 * Partie deswegen, und die gewünschte Aktion entfällt. Sonst läuft die

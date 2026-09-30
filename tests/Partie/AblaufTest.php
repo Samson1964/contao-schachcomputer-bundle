@@ -28,6 +28,16 @@ class AblaufTest extends TestCase
 	private const T0 = 1790000000000;
 
 	/**
+	 * 50 regelgerechte Halbzüge (Spanische Partie, Breyer-Verteidigung, dann
+	 * ruhige Figurenzüge) ohne Partieende und ohne Stellungswiederholung.
+	 *
+	 * Die Remisregeln verlangen mindestens 19 eigene Züge, nach einer
+	 * Ablehnung 24; auch PartiedienstTest, PartieControllerTest und PgnTest
+	 * kommen damit bis zum Remisangebot.
+	 */
+	public const ZUEGE = 'e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f8e7 f1e1 b7b5 a4b3 d7d6 c2c3 e8g8 h2h3 c6b8 d2d4 b8d7 b1d2 c8b7 b3c2 f8e8 d2f1 e7f8 f1g3 g7g6 a2a4 c7c5 d4d5 c5c4 c1g5 h7h6 g5e3 d7c5 d1d2 h6h5 e3g5 f8e7 g1h2 g8g7 e1f1 e8f8 a1e1 a8c8 d2e2 d8d7 e2d1 d7c7';
+
+	/**
 	 * Der Start übernimmt die Bedenkzeit und stellt die Uhr.
 	 */
 	public function testStarten(): void
@@ -40,6 +50,7 @@ class AblaufTest extends TestCase
 		$this->assertSame('blitz', $partie->klasse);
 		$this->assertSame(180000, $partie->restzeit);
 		$this->assertSame(180000, $partie->restzeitEngine);
+		$this->assertSame(0, $partie->remisAngebot);
 		$this->assertSame(self::T0, $partie->uhrSeit);
 		$this->assertSame(1790000000, $partie->beginn);
 		$this->assertFalse($partie->spielerAmZug());
@@ -390,6 +401,166 @@ class AblaufTest extends TestCase
 	}
 
 	/**
+	 * Remis anbieten darf der Spieler frühestens vor seinem 20. Zug, also
+	 * wenn er 19 Züge gemacht hat – mit Weiß wie mit Schwarz.
+	 */
+	public function testRemisErstAbDemZwanzigstenEigenenZug(): void
+	{
+		$weiss = $this->gespielt('w', 36);
+		$this->assertSame(18, $weiss->eigeneZuege());
+		$this->assertTrue($weiss->spielerAmZug());
+		$this->assertFalse(Ablauf::remisErlaubt($weiss));
+		$this->assertRemisNichtErlaubt($weiss, self::T0 + 36500);
+
+		$weiss = $this->gespielt('w', 38);
+		$this->assertSame(19, $weiss->eigeneZuege());
+		$this->assertTrue(Ablauf::remisErlaubt($weiss));
+
+		$schwarz = $this->gespielt('b', 37);
+		$this->assertSame(18, $schwarz->eigeneZuege());
+		$this->assertTrue($schwarz->spielerAmZug());
+		$this->assertFalse(Ablauf::remisErlaubt($schwarz));
+
+		$schwarz = $this->gespielt('b', 39);
+		$this->assertSame(19, $schwarz->eigeneZuege());
+		$this->assertTrue(Ablauf::remisErlaubt($schwarz));
+	}
+
+	/**
+	 * Anbieten kann nur, wer am Zug ist.
+	 */
+	public function testRemisNurAmZug(): void
+	{
+		$partie = $this->gespielt('w', 37);
+		$this->assertSame(19, $partie->eigeneZuege());
+		$this->assertFalse($partie->spielerAmZug());
+		$this->assertFalse(Ablauf::remisErlaubt($partie));
+
+		$this->assertRemisNichtErlaubt($partie, self::T0 + 37500);
+	}
+
+	/**
+	 * Übungspartien kennen kein Remisangebot (dort gibt es „Partie beenden“),
+	 * beendete Partien auch nicht.
+	 */
+	public function testKeinRemisInUebungUndBeendeterPartie(): void
+	{
+		$this->assertFalse(Ablauf::remisErlaubt(Ablauf::uebung(7, 800, 'w', \array_slice(explode(' ', self::ZUEGE), 0, 38), false, self::T0)));
+
+		// Auch eine laufende Partie nicht, sobald sie ungewertet ist
+		$uebung = $this->gespielt('w', 38);
+		$uebung->gewertet = false;
+		$this->assertFalse(Ablauf::remisErlaubt($uebung));
+		$this->assertRemisNichtErlaubt($uebung, self::T0 + 38500);
+
+		$aufgegeben = $this->gespielt('w', 38);
+		Ablauf::aufgeben($aufgegeben, self::T0 + 38500);
+		$this->assertFalse(Ablauf::remisErlaubt($aufgegeben));
+
+		$this->expectExceptionObject(new PartieFehler(PartieFehler::BEENDET));
+		Ablauf::remis($aufgegeben, 38, true, self::T0 + 39000);
+	}
+
+	/**
+	 * Nimmt Stockfish an, endet die Partie remis durch Einigung.
+	 */
+	public function testRemisAngenommen(): void
+	{
+		$partie = $this->gespielt('w', 38);
+
+		Ablauf::remis($partie, 38, true, self::T0 + 38000 + 4500);
+
+		$this->assertSame(Partie::BEENDET, $partie->status);
+		$this->assertSame('einigung', $partie->grund);
+		$this->assertSame(Partie::REMIS, $partie->ergebnis);
+		$this->assertSame(0.5, $partie->punkte());
+		$this->assertSame(1790000042, $partie->ende);
+		$this->assertCount(38, $partie->zuege);
+		$this->assertSame(19, $partie->remisAngebot);
+		$this->assertFalse(Ablauf::remisErlaubt($partie));
+	}
+
+	/**
+	 * Lehnt Stockfish ab, läuft die Partie weiter – die Uhr des Spielers
+	 * ebenfalls. Das nächste Angebot ist erst fünf eigene Züge später möglich.
+	 */
+	public function testRemisAbgelehnt(): void
+	{
+		$partie = $this->gespielt('w', 38);
+		$restzeit = $partie->restzeit;
+
+		Ablauf::remis($partie, 38, false, self::T0 + 38000 + 1500);
+
+		$this->assertSame(Partie::LAEUFT, $partie->status);
+		$this->assertSame('', $partie->grund);
+		$this->assertSame(19, $partie->remisAngebot);
+		$this->assertSame($restzeit, $partie->restzeit);
+		$this->assertSame(self::T0 + 38000, $partie->uhrSeit);
+		$this->assertTrue($partie->spielerAmZug());
+		$this->assertFalse(Ablauf::remisErlaubt($partie));
+		$this->assertRemisNichtErlaubt($partie, self::T0 + 38000 + 2000);
+
+		// Der nächste Zug kostet die ganze Zeit seit Beginn des Zuges, samt Prüfung des Angebots
+		Ablauf::zug($partie, 'e3g5', 38, null, self::T0 + 38000 + 3000);
+		$this->assertSame($restzeit - 3000 + 2000, $partie->restzeit);
+
+		$this->weiterspielen($partie, 46);
+		$this->assertSame(23, $partie->eigeneZuege());
+		$this->assertFalse(Ablauf::remisErlaubt($partie));
+
+		$this->weiterspielen($partie, 48);
+		$this->assertSame(24, $partie->eigeneZuege());
+		$this->assertTrue(Ablauf::remisErlaubt($partie));
+
+		Ablauf::remis($partie, 48, false, $partie->uhrSeit + 500);
+		$this->assertSame(24, $partie->remisAngebot);
+		$this->assertFalse(Ablauf::remisErlaubt($partie));
+	}
+
+	/**
+	 * Vor dem Angebot zählt die Uhr des Spielers: Ist sie samt Ausgleich
+	 * abgelaufen, verliert er auf Zeit, statt dass über das Remis entschieden
+	 * wird.
+	 */
+	public function testRemisNachAblaufDerUhr(): void
+	{
+		$rechtzeitig = $this->gespielt('w', 38);
+		$rechtzeitig->restzeit = 5000;
+		Ablauf::remis($rechtzeitig, 38, true, self::T0 + 38000 + 6000);
+		$this->assertSame('einigung', $rechtzeitig->grund);
+
+		$zuSpaet = $this->gespielt('w', 38);
+		$zuSpaet->restzeit = 5000;
+		Ablauf::remis($zuSpaet, 38, true, self::T0 + 38000 + 6001);
+
+		$this->assertSame(Partie::BEENDET, $zuSpaet->status);
+		$this->assertSame('zeit', $zuSpaet->grund);
+		$this->assertSame(Partie::SIEG_SCHWARZ, $zuSpaet->ergebnis);
+		$this->assertSame(0, $zuSpaet->restzeit);
+		$this->assertSame(0, $zuSpaet->remisAngebot);
+	}
+
+	/**
+	 * Ein Angebot zu einer veralteten Zugnummer wird abgewiesen, ohne etwas
+	 * zu ändern.
+	 */
+	public function testRemisMitVeralteterZugnummer(): void
+	{
+		$partie = $this->gespielt('w', 38);
+		$vorher = $partie->alsZeile();
+
+		try {
+			Ablauf::remis($partie, 37, true, self::T0 + 39000);
+			$this->fail('Erwartet: PartieFehler');
+		} catch (PartieFehler $fehler) {
+			$this->assertSame(PartieFehler::VERALTET, $fehler->kennung());
+			$this->assertSame(409, $fehler->status());
+		}
+
+		$this->assertSame($vorher, $partie->alsZeile());
+	}
+
+	/**
 	 * Aufgeben ist jederzeit möglich und zählt als Niederlage.
 	 */
 	public function testAufgeben(): void
@@ -484,6 +655,7 @@ class AblaufTest extends TestCase
 	{
 		$partie = $this->partie('w');
 		Ablauf::zug($partie, 'e2e4', 0, 1200, self::T0 + 1500);
+		$partie->remisAngebot = 21;
 
 		$zeile = array('id' => '5') + array_map('strval', $partie->alsZeile());
 		$zurueck = Partie::ausZeile($zeile);
@@ -493,6 +665,7 @@ class AblaufTest extends TestCase
 		$this->assertSame(array(0), $zurueck->zeiten);
 		$this->assertSame($partie->uhrSeit, $zurueck->uhrSeit);
 		$this->assertSame(180000, $zurueck->restzeitEngine);
+		$this->assertSame(21, $zurueck->remisAngebot);
 		$this->assertTrue($zurueck->gewertet);
 		$this->assertSame(1, $partie->alsZeile()['zugnummer']);
 
@@ -510,6 +683,75 @@ class AblaufTest extends TestCase
 	private function partie(string $farbe): Partie
 	{
 		return Ablauf::starten(7, '', $this->bedenkzeit(), 1500, $farbe, self::T0);
+	}
+
+	/**
+	 * Legt eine Partie an, die schon die ersten Halbzüge aus ZUEGE hinter
+	 * sich hat.
+	 *
+	 * Die Züge werden gesetzt statt einzeln über zug() gespielt: Jeder Zug
+	 * spielt die ganze Partie nach, 38 Halbzüge kosteten so fast eine halbe
+	 * Sekunde je Test. Die Uhren stehen wie nach dem Start; uhrSeit liegt
+	 * n Sekunden nach T0, als wäre jeder Halbzug 1 s nach dem vorigen gekommen.
+	 *
+	 * @param string $farbe     Farbe des Spielers
+	 * @param int    $halbzuege Zahl der Halbzüge, höchstens 50
+	 *
+	 * @return Partie Die laufende Partie
+	 */
+	private function gespielt(string $farbe, int $halbzuege): Partie
+	{
+		$partie = $this->partie($farbe);
+		$partie->zuege = \array_slice(explode(' ', self::ZUEGE), 0, $halbzuege);
+		$partie->uhrSeit = self::T0 + $halbzuege * 1000;
+
+		return $partie;
+	}
+
+	/**
+	 * Spielt eine Partie mit den Zügen aus ZUEGE bis zur angegebenen Zahl von
+	 * Halbzügen weiter, jeden Halbzug 1 s nach dem Start der laufenden Uhr.
+	 *
+	 * Die Spielerzüge melden keine Browsermessung; angerechnet wird also die
+	 * volle Sekunde.
+	 *
+	 * @param Partie $partie Die laufende Partie; ihre bisherigen Züge müssen
+	 *                       der Anfang von ZUEGE sein
+	 * @param int    $bis    Zahl der Halbzüge danach, höchstens 50
+	 *
+	 * @return Partie Dieselbe Partie
+	 */
+	private function weiterspielen(Partie $partie, int $bis): Partie
+	{
+		$zuege = explode(' ', self::ZUEGE);
+
+		for ($index = $partie->zugnummer(); $index < $bis; ++$index) {
+			Ablauf::zug($partie, $zuege[$index], $index, null, $partie->uhrSeit + 1000);
+		}
+
+		return $partie;
+	}
+
+	/**
+	 * Prüft, dass ein Remisangebot mit NICHT_ERLAUBT abgewiesen wird und die
+	 * Partie dabei unverändert bleibt.
+	 *
+	 * @param Partie $partie  Die Partie; angeboten wird zu ihrer aktuellen Zugnummer
+	 * @param int    $jetztMs Zeitpunkt des Angebots, vor Ablauf aller Fristen
+	 */
+	private function assertRemisNichtErlaubt(Partie $partie, int $jetztMs): void
+	{
+		$vorher = $partie->alsZeile();
+
+		try {
+			Ablauf::remis($partie, $partie->zugnummer(), true, $jetztMs);
+			$this->fail('Erwartet: PartieFehler');
+		} catch (PartieFehler $fehler) {
+			$this->assertSame(PartieFehler::NICHT_ERLAUBT, $fehler->kennung());
+			$this->assertSame(422, $fehler->status());
+		}
+
+		$this->assertSame($vorher, $partie->alsZeile());
 	}
 
 	/**

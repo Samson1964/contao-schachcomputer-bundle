@@ -41,6 +41,14 @@ schachcomputer_abbrechen:
         _scope: frontend
         _token_check: false
 
+schachcomputer_remis:
+    path: /_schachcomputer/remis
+    controller: Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController::remis
+    methods: [POST]
+    defaults:
+        _scope: frontend
+        _token_check: false
+
 schachcomputer_uebung:
     path: /_schachcomputer/uebung
     controller: Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController::uebung

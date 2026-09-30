@@ -465,6 +465,74 @@ class PartiedienstTest extends TestCase
 	}
 
 	/**
+	 * Ein angenommenes Remisangebot beendet die Partie, verrechnet sie als
+	 * Remis und zählt sie in der Statistik als Remis.
+	 */
+	public function testRemisAngenommenWirdVerrechnet(): void
+	{
+		$spieler = Spieler::mitglied(7);
+		$partie = $this->bisZumAngebot($spieler);
+
+		$ende = $this->dienst->remis($spieler, null, $partie->id, 38, true, self::T0 + 40000);
+
+		$this->assertSame(Partie::BEENDET, $ende->status);
+		$this->assertSame('einigung', $ende->grund);
+		$this->assertTrue($ende->verrechnet);
+
+		$gespeichert = $this->dienst->laden($partie->id);
+		$this->assertSame(Partie::REMIS, $gespeichert->ergebnis);
+		$this->assertSame('einigung', $gespeichert->grund);
+		$this->assertSame(19, $gespeichert->remisAngebot);
+		$this->assertTrue($gespeichert->verrechnet);
+
+		$stand = $this->db->fetchAssociative('SELECT partien, remis FROM tl_schachcomputer_spieler WHERE memberId=7');
+		$this->assertSame(array(1, 1), array((int) $stand['partien'], (int) $stand['remis']));
+		$this->assertSame(1, (int) $this->db->fetchOne("SELECT SUM(anzahl) FROM tl_schachcomputer_statistik WHERE art='remis'"));
+	}
+
+	/**
+	 * Ein abgelehntes Angebot wird gespeichert; die Partie und die Uhr des
+	 * Spielers laufen weiter, und ein zweites Angebot kommt zu früh.
+	 */
+	public function testRemisAbgelehntWirdGespeichert(): void
+	{
+		$spieler = Spieler::mitglied(7);
+		$partie = $this->bisZumAngebot($spieler);
+
+		$weiter = $this->dienst->remis($spieler, null, $partie->id, 38, false, self::T0 + 40000);
+		$this->assertSame(Partie::LAEUFT, $weiter->status);
+
+		$gespeichert = $this->dienst->laden($partie->id);
+		$this->assertSame(Partie::LAEUFT, $gespeichert->status);
+		$this->assertSame(19, $gespeichert->remisAngebot);
+		$this->assertSame(self::T0 + 38000, $gespeichert->uhrSeit);
+		$this->assertSame($partie->restzeit, $gespeichert->restzeit);
+		$this->assertFalse($gespeichert->verrechnet);
+
+		$this->expectExceptionObject(new PartieFehler(PartieFehler::NICHT_ERLAUBT));
+		$this->dienst->remis($spieler, null, $partie->id, 38, true, self::T0 + 41000);
+	}
+
+	/**
+	 * In fremden Partien lässt sich kein Remis anbieten.
+	 */
+	public function testRemisInFremderPartie(): void
+	{
+		$partie = $this->bisZumAngebot(Spieler::mitglied(7));
+
+		foreach (array(Spieler::gast('xyz'), Spieler::mitglied(8)) as $fremder) {
+			try {
+				$this->dienst->remis($fremder, null, $partie->id, 38, true, self::T0 + 40000);
+				$this->fail('Erwartet: PartieFehler');
+			} catch (PartieFehler $fehler) {
+				$this->assertSame(PartieFehler::NICHT_GEFUNDEN, $fehler->kennung());
+			}
+		}
+
+		$this->assertSame(Partie::LAEUFT, $this->dienst->laden($partie->id)->status);
+	}
+
+	/**
 	 * Gäste spielen mit Sitzung; ihre Wertung landet nur dort.
 	 */
 	public function testGastpartie(): void
@@ -535,5 +603,30 @@ class PartiedienstTest extends TestCase
 		$this->assertFalse($gespeichert->gewertet);
 		$this->assertSame('aufgabe', $gespeichert->grund);
 		$this->assertNull($this->dienst->laufende(Spieler::mitglied(7), null, self::T0));
+	}
+
+	/**
+	 * Legt eine laufende Partie mit Weiß an, die schon 38 Halbzüge aus
+	 * AblaufTest::ZUEGE hinter sich hat: Der Spieler hat 19 Züge gemacht, ist
+	 * am Zug und darf zum ersten Mal Remis anbieten.
+	 *
+	 * Die Züge werden gesetzt statt einzeln gespielt, weil jeder Zug die
+	 * ganze Partie nachspielt (siehe AblaufTest::gespielt()); den Weg über
+	 * einzelne Züge prüft PartieControllerTest::testRemisAnbieten().
+	 *
+	 * @param Spieler $spieler Mitglied oder Gast
+	 *
+	 * @return Partie Die gespeicherte Partie mit ID (uhrSeit T0 + 38 s)
+	 */
+	private function bisZumAngebot(Spieler $spieler): Partie
+	{
+		$partie = Ablauf::starten($spieler->memberId() ?? 0, $spieler->gastkennung(), array('id' => $this->blitz, 'minuten' => 3, 'inkrement' => 2, 'klasse' => 'blitz'), 1500, 'w', self::T0);
+		$partie->zuege = \array_slice(explode(' ', AblaufTest::ZUEGE), 0, 38);
+		$partie->uhrSeit = self::T0 + 38000;
+
+		$this->db->insert('tl_schachcomputer_partie', $partie->alsZeile());
+		$partie->id = (int) $this->db->lastInsertId();
+
+		return $partie;
 	}
 }
