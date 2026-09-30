@@ -900,8 +900,11 @@ class Schachcomputer {
      *
      * Liefert Stockfish kein Ergebnis, geht nichts an den Server; die Engine
      * wird beendet (der nächste Engine-Zug startet sie neu), und der Spieler
-     * zieht weiter. Wechselt inzwischen die Generation (Uhr abgelaufen, Seite
-     * verlassen, aufgegeben), wird nichts mehr verarbeitet.
+     * zieht weiter. Scheitert die Anfrage an den Server (Netzfehler), wird der
+     * Stand neu geladen (partieNeuLaden()), damit Brett und Knopf nicht
+     * gesperrt bleiben, während die Uhr läuft. Wechselt inzwischen die
+     * Generation (Uhr abgelaufen, Seite verlassen, aufgegeben), wird nichts
+     * mehr verarbeitet.
      */
     async remisAnbieten() {
         const partie = this.partie
@@ -944,7 +947,14 @@ class Schachcomputer {
                 angenommen: nimmtRemisAn(bewertung)
             })
         } catch (fehler) {
+            // Brett und Knopf sind gesperrt, die Uhr des Spielers läuft auf dem
+            // Server weiter: Der Stand wird neu geladen, damit die Partie nicht
+            // festsitzt. Ob das Angebot angekommen ist, weiß nur der Server.
+            if (generation !== this.generation) {
+                return
+            }
             this.fehler(fehler)
+            await this.partieNeuLaden()
             return
         }
         if (generation !== this.generation) {
