@@ -235,7 +235,8 @@ test("bewerten() rechnet über die Stellung und liefert die letzte Bewertung", a
     assert.deepEqual(gesendet, [
         "uci", "isready",
         "setoption name UCI_LimitStrength value false", "setoption name Skill Level value 20", "isready",
-        "position startpos moves e2e4", "go movetime 800"
+        "position startpos moves e2e4", "go movetime 800",
+        "setoption name Clear Hash", "isready"
     ])
     engine.beenden()
     delete globalThis.Worker
@@ -247,6 +248,86 @@ test("bewerten() weist ab, wenn Stockfish keine Bewertung meldet", async () => {
     const engine = neueEngine()
     await assert.rejects(engine.bewerten(["e2e4"], VOLLE_STAERKE, 100), /keine Bewertung/)
     engine.beenden()
+    delete globalThis.Worker
+})
+
+/**
+ * Baut einen Worker, der alle Befehle mitschreibt und auf „go" eine feste
+ * Antwort gibt; uci und isready beantwortet er wie üblich.
+ *
+ * @param {string[]} gesendet Sammelt die Befehle an den Worker
+ * @param {string} aufGo Die Ausgabe der Engine auf „go"
+ * @returns {Function} Die Klasse für globalThis.Worker
+ */
+function mitschreibenderWorker(gesendet, aufGo) {
+    return class {
+        postMessage(befehl) {
+            gesendet.push(befehl)
+            const antwort = befehl.startsWith("go") ? aufGo : {uci: "uciok", isready: "readyok"}[befehl]
+            if (antwort) {
+                setTimeout(() => this.onmessage({data: antwort}), 0)
+            }
+        }
+        terminate() {
+        }
+    }
+}
+
+test("nach bewerten() leert die Engine ihre Hashtabelle, bevor der nächste Zug die Stufe einstellt", async () => {
+    // Die Bewertung rechnet in voller Stärke. Ihre Hashtabelle darf nicht in die
+    // nachgebauten Stufen (go depth 1) hinüberwirken, sonst spielen sie stärker
+    const gesendet = []
+    globalThis.Worker = mitschreibenderWorker(gesendet, "info depth 1 score cp 5 pv e2e4\nbestmove e2e4")
+
+    const engine = neueEngine()
+    await engine.bewerten(["e2e4"], VOLLE_STAERKE, 800)
+    await engine.zug(["e2e4"], SCHWACH, 1000)
+
+    const leeren = gesendet.indexOf("setoption name Clear Hash")
+    assert.ok(leeren >= 0, "die Hashtabelle wird geleert")
+    assert.equal(gesendet[leeren + 1], "isready", "die Engine bestätigt das Leeren, bevor es weitergeht")
+    assert.ok(gesendet.indexOf("go movetime 800") < leeren, "erst nach der Bewertung")
+    const stufe = gesendet.indexOf("setoption name Skill Level value 0")
+    assert.ok(stufe > leeren, "die Optionen der Partie folgen danach")
+    assert.ok(gesendet.indexOf("go depth 1") > stufe)
+    engine.beenden()
+    delete globalThis.Worker
+})
+
+test("scheitert die Bewertung, wird die Hashtabelle trotzdem geleert und der Fehler bleibt der echte", async () => {
+    const gesendet = []
+    globalThis.Worker = mitschreibenderWorker(gesendet, "bestmove e7e5")
+
+    const engine = neueEngine()
+    await assert.rejects(engine.bewerten(["e2e4"], VOLLE_STAERKE, 100), /keine Bewertung/)
+
+    assert.ok(gesendet.includes("setoption name Clear Hash"))
+    engine.beenden()
+    delete globalThis.Worker
+})
+
+test("fällt die Engine während der Bewertung aus, bleibt deren Fehler und nichts wird an den toten Worker geschickt", async () => {
+    const gesendet = []
+    globalThis.Worker = class {
+        postMessage(befehl) {
+            gesendet.push(befehl)
+            if (befehl.startsWith("go")) {
+                setTimeout(() => this.onerror({message: "abgestürzt"}), 0)
+                return
+            }
+            const antwort = {uci: "uciok", isready: "readyok"}[befehl]
+            if (antwort) {
+                setTimeout(() => this.onmessage({data: antwort}), 0)
+            }
+        }
+        terminate() {
+        }
+    }
+
+    const engine = neueEngine()
+    await assert.rejects(engine.bewerten(["e2e4"], VOLLE_STAERKE, 100), /abgestürzt/)
+
+    assert.ok(!gesendet.includes("setoption name Clear Hash"), "ein neuer Worker beginnt ohnehin mit leerer Tabelle")
     delete globalThis.Worker
 })
 

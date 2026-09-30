@@ -49,6 +49,7 @@ test("Stockfish 19 meldet die Optionen zur Spielstärke", async () => {
     assert.match(ausgabe, /id name Stockfish 19/)
     assert.match(ausgabe, /option name UCI_Elo type spin default 1320 min 1320 max 3190/)
     assert.match(ausgabe, /option name Skill Level type spin default 20 min 0 max 20/)
+    assert.match(ausgabe, /option name Clear Hash type button/, "engine.js leert damit nach einer Bewertung die Hashtabelle")
 })
 
 test("Stockfish findet mit begrenzter Stärke einen Zug", async () => {

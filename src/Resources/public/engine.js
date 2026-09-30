@@ -370,6 +370,12 @@ export class Engine {
      * wird oder ausfällt. Die Einstellungen gelten nur für diese Suche; jede
      * Zugsuche stellt ihre Stufe wieder selbst ein.
      *
+     * Die Bewertung rechnet in voller Stärke und füllt dabei die Hashtabelle der
+     * Engine mit tiefen Ergebnissen. Die nachgebauten Stufen unter 1400 suchen
+     * nur bis Tiefe 1, bedienen sich aber aus dieser Tabelle und spielten danach
+     * stärker als eingestellt. Deshalb leert die Bewertung am Ende die Tabelle
+     * (siehe hashLeeren()), auch wenn sie selbst scheitert.
+     *
      * @param {string[]} zuege Bisherige Züge in UCI-Schreibweise ab Grundstellung
      * @param {Object} einstellungen Einstellungen der Suche, meist VOLLE_STAERKE
      * @param {number} zeitMs Rechenzeit in ms
@@ -379,14 +385,45 @@ export class Engine {
      */
     bewerten(zuege, einstellungen, zeitMs) {
         return this.nacheinander(async () => {
-            const zeilen = []
-            await this.rechnen(zuege, einstellungen, zeitMs, zeile => zeilen.push(zeile))
-            const bewertung = bewertungAus(zeilen)
-            if (!bewertung) {
-                throw new Error("Stockfish hat keine Bewertung geliefert.")
+            const epoche = this.epoche
+            try {
+                const zeilen = []
+                await this.rechnen(zuege, einstellungen, zeitMs, zeile => zeilen.push(zeile))
+                const bewertung = bewertungAus(zeilen)
+                if (!bewertung) {
+                    throw new Error("Stockfish hat keine Bewertung geliefert.")
+                }
+                return bewertung
+            } finally {
+                await this.hashLeeren(epoche)
             }
-            return bewertung
         })
+    }
+
+    /**
+     * Leert die Hashtabelle der Engine und wartet, bis sie das bestätigt hat.
+     *
+     * Läuft nur, solange noch derselbe Worker arbeitet, der die Suche gerechnet
+     * hat (Epoche unverändert). Ist er ausgefallen oder beendet, beginnt der
+     * nächste ohnehin mit leerer Tabelle, und ein Befehl an ihn wäre sinnlos.
+     * Ein Fehler dabei wird bewusst verschluckt: Er darf weder die Bewertung
+     * noch einen echten Fehler der Suche überdecken, der Ausfall selbst wurde
+     * schon über zuruecksetzen() gemeldet.
+     *
+     * @param {number} epoche Stand von this.epoche zu Beginn der Suche
+     * @returns {Promise<void>} Erfüllt nach readyok oder, wenn nichts zu tun
+     *                          oder die Engine ausgefallen ist, sofort; weist nie ab
+     */
+    async hashLeeren(epoche) {
+        if (epoche !== this.epoche || !this.worker) {
+            return
+        }
+        try {
+            this.senden("setoption name Clear Hash")
+            await this.synchronisieren()
+        } catch (fehler) {
+            // Siehe oben: Ausfall oder Beenden der Engine ist schon gemeldet
+        }
     }
 
     /**
