@@ -6,7 +6,8 @@ Ranglisten. Läuft unter **Contao 4.13 und Contao 5.7** (PHP 8.1 bis 8.4).
 
 ## Funktionen
 
-- **Gewertete Partien** mit Bedenkzeiten, die der Redakteur im Backend anlegt.
+- **Gewertete Partien** mit Schachuhr für beide Seiten und Bedenkzeiten, die
+  der Redakteur im Backend anlegt.
   Jede Bedenkzeit gehört zu einer Wertungsklasse: Blitz, Schnellschach oder
   Langpartie. Jede Klasse hat eigene Wertungen und Ranglisten.
 - **Spielstärke** von 600 bis 2500 in 100er-Schritten. Vorausgewählt ist die
@@ -53,14 +54,30 @@ Ranglisten. Läuft unter **Contao 4.13 und Contao 5.7** (PHP 8.1 bis 8.4).
 ## Spielregeln und Wertung
 
 - Der Server führt jede gewertete Partie: Jeder Zug wird auf dem Server
-  geprüft, die Uhr läuft auf dem Server.
-- Nur der Spieler hat eine Uhr. Sie läuft ab seinem zweiten Zug; für den
-  ersten Zug gibt es 60 Sekunden, sonst wird die Partie ungewertet
-  abgebrochen. Die Zeitgutschrift gibt es ab dem zweiten Zug. Bis zu einer
-  Sekunde Übertragungszeit je Zug wird ausgeglichen.
-- Die Engine rechnet in allen Klassen 1 bis 2 Sekunden je Zug, und zwar im
-  Browser des Spielers. Bleibt ein Engine-Zug 60 Sekunden aus, gilt die
-  Partie als verlassen und ist verloren.
+  geprüft, die Uhren laufen auf dem Server.
+- **Zwei Uhren:** Spieler und Computer bekommen dieselbe Bedenkzeit. Beide
+  Uhren stehen nebeneinander, die gerade laufende ist hervorgehoben.
+- Die Uhr des Spielers läuft ab seinem zweiten Zug; für den ersten Zug gibt
+  es 60 Sekunden, sonst wird die Partie ungewertet abgebrochen. Die
+  Zeitgutschrift gibt es ab dem zweiten Zug. Bis zu einer Sekunde
+  Übertragungszeit je Zug wird ausgeglichen.
+- Die Uhr des Computers läuft ab seinem ersten Zug, die Gutschrift gibt es
+  ebenfalls ab dem ersten Zug. Seine Zeit misst der Server selbst: vom
+  Speichern des Spielerzugs bis zum Eintreffen des Computerzugs.
+- **Zeiteinteilung von Stockfish:** Die Engine rechnet 1 bis 2 Sekunden je
+  Zug, und zwar im Browser des Spielers. Wird ihre Uhr knapp, rechnet sie
+  kürzer: höchstens ein Dreißigstel der Restzeit (nach einer Sekunde
+  Reserve) plus die halbe Gutschrift, mindestens 0,2 Sekunden.
+- **Computer zu spät:** Trifft der Computerzug erst nach Ablauf seiner Uhr
+  ein, wird er nicht mehr ausgeführt, und der Computer verliert auf Zeit –
+  remis, wenn der Spieler kein Mattmaterial mehr hat.
+- **Computerzug bleibt aus:** Bleibt ein Engine-Zug 60 Sekunden aus, gilt die
+  Partie als verlassen und ist verloren, auch wenn die Uhr des Computers
+  schon früher abgelaufen wäre. Die Uhr des Computers zählt nur, wenn sein
+  Zug tatsächlich ankommt – sonst gewönne, wer nach dem eigenen Zug den Tab
+  schließt.
+- Partien, die vor Fassung 1.1.0 begonnen wurden, laufen ohne Uhr des
+  Computers zu Ende.
 - **Tab schließen:** Ist der Spieler am Zug, läuft seine Uhr weiter ab, und
   er verliert auf Zeit. Ist die Engine am Zug, gilt die Partie nach
   60 Sekunden als verlassen. Vor dem ersten eigenen Zug wird die Partie
@@ -73,8 +90,8 @@ Ranglisten. Läuft unter **Contao 4.13 und Contao 5.7** (PHP 8.1 bis 8.4).
   Partie, und es erscheint ein Hinweis. Antwortet sie während einer Partie
   nicht, wird sie einmal frisch gestartet.
 - Remis nach den Regeln (Patt, dreifache Wiederholung, 50 Züge, ungenügendes
-  Material) wird selbsttätig erkannt. Läuft die Zeit ab und hat die Engine
-  kein Mattmaterial mehr, endet die Partie remis.
+  Material) wird selbsttätig erkannt. Läuft die Zeit des Spielers ab und hat
+  die Engine kein Mattmaterial mehr, endet die Partie remis.
 - Wertung nach **Glicko-2**, Start 1500. Eine Wertung mit Abweichung über 110
   gilt als vorläufig (Anzeige mit „?") und steht in keiner Rangliste. Wer
   lange nicht spielt, wird wieder vorläufig – nach etwa drei Monaten.
@@ -89,7 +106,8 @@ Vereinsspieler mit DWZ 1500. Die Stufen unter 1400 sind nachgebaut
 manipuliert, könnte ihr schlechte Züge unterschieben; der Server prüft nur,
 ob sie regelgerecht sind. Ebenso kann ein manipulierter Browser den fertigen
 Engine-Zug bis knapp 60 Sekunden zurückhalten, während die Uhr des Spielers
-steht, und so Bedenkzeit gewinnen. Für eine Vereinsseite ist das vertretbar.
+steht; das kostet die Uhr des Computers und kann ihn bei knapper Uhr sogar
+auf Zeit verlieren lassen. Für eine Vereinsseite ist das vertretbar.
 
 ## Statistik im Backend
 
