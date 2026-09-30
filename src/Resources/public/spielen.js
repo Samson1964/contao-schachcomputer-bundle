@@ -758,8 +758,10 @@ class Schachcomputer {
      * Uhr des Computers (vor 1.1.0) rechnen wie bisher.
      *
      * Scheitert Stockfish in einer gewerteten Partie auch im zweiten Versuch
-     * (siehe engineSuche()), erscheint eine eigene Meldung; der Server wertet
-     * die Partie dann nach 60 s ohne Engine-Zug als verlassen.
+     * (siehe engineSuche()), erscheint eine eigene Meldung, und beide Uhren
+     * werden angehalten, damit die hervorgehobene Uhr des Computers nicht
+     * weiter bis 0 läuft; der Server wertet die Partie dann nach 60 s ohne
+     * Engine-Zug als verlassen.
      */
     async engineZieht() {
         const generation = this.generation
@@ -783,6 +785,9 @@ class Schachcomputer {
             }
             if (this.modus === "gewertet") {
                 console.error("Schachcomputer:", fehler)
+                // Sonst liefe die hervorgehobene Uhr des Computers bis 0 weiter,
+                // obwohl er gar nicht mehr rechnet
+                this.uhrenAnhalten()
                 this.status(this.texte.engineAusgefallen, "fehler")
             } else {
                 this.fehler(fehler)
