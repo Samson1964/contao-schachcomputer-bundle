@@ -67,6 +67,7 @@ class SpielenModule extends SchachcomputerModul
 			'zugUrl'        => $router->generate('schachcomputer_zug'),
 			'aufgebenUrl'   => $router->generate('schachcomputer_aufgeben'),
 			'abbrechenUrl'  => $router->generate('schachcomputer_abbrechen'),
+			'remisUrl'      => $router->generate('schachcomputer_remis'),
 			'uebungUrl'     => $router->generate('schachcomputer_uebung'),
 			'assetsUrl'     => $basis.'vendor/cm-chessboard/assets/',
 			'engineUrl'     => $basis.'vendor/stockfish/stockfish-19-lite-single.js',

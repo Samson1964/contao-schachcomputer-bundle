@@ -7,6 +7,8 @@
  * chess.js dient nur der sofortigen Zugprüfung und dem Aufbau der
  * Züge für Stockfish. Ob die Partie zu Ende ist, entscheidet allein der
  * Server (seine Wiederholungsprüfung weicht in einem Randfall von chess.js ab).
+ * Über ein Remisangebot entscheidet Stockfish hier im Browser; der Server
+ * prüft nur die Rahmenregeln (/_schachcomputer/remis).
  *
  * Übungspartie: läuft ganz im Browser, ohne Uhr, mit Zurücknehmen. Am Ende
  * geht die Zugliste an /_schachcomputer/uebung (nur Mitglieder).
@@ -24,7 +26,7 @@ import {Chess} from "./vendor/chess.js/chess.js"
 // alte Fassung aus seinem Zwischenspeicher. Ein statischer Import kann die
 // Angabe nicht übernehmen, deshalb der dynamische Import.
 const VERSION = new URL(import.meta.url).search
-const {Engine, rechenzeit, zeitBudget, zufallsZug, mitZeitlimit} = await import("./engine.js" + VERSION)
+const {Engine, rechenzeit, zeitBudget, zufallsZug, mitZeitlimit, nimmtRemisAn, VOLLE_STAERKE} = await import("./engine.js" + VERSION)
 const {Uhr} = await import("./uhr.js" + VERSION)
 
 /** Markierung des letzten Zuges. */
@@ -47,6 +49,12 @@ const ENGINE_SUCHE_MS = 15000
  * So lange meldet der Server nach Restzeit 0 noch „läuft" (ms).
  */
 const UHR_AUSGLEICH_MS = 1000 + 300
+
+/** Rechenzeit, mit der Stockfish ein Remisangebot prüft, solange die Uhr des Spielers nicht knapp ist (ms). */
+const REMIS_PRUEFZEIT_MS = 1000
+
+/** Höchstdauer der Prüfung eines Remisangebots samt Start der Engine; die Uhr des Spielers läuft dabei (ms). */
+const REMIS_ZEITLIMIT_MS = 5000
 
 const warten = ms => new Promise(erfuellen => setTimeout(erfuellen, ms))
 
@@ -108,6 +116,7 @@ class Schachcomputer {
             gast: feld("[data-gast]"),
             knoepfe: {
                 abbrechen: feld('[data-aktion="abbrechen"]'),
+                remis: feld('[data-aktion="remis"]'),
                 aufgeben: feld('[data-aktion="aufgeben"]'),
                 zuruecknehmen: feld('[data-aktion="zuruecknehmen"]'),
                 beenden: feld('[data-aktion="beenden"]'),
@@ -145,6 +154,7 @@ class Schachcomputer {
         this.feld.uebung.addEventListener("click", () => this.uebungStarten())
         this.feld.bedenkzeit.addEventListener("change", () => this.stufeVorschlagen())
         this.feld.knoepfe.abbrechen.addEventListener("click", () => this.abbrechen())
+        this.feld.knoepfe.remis.addEventListener("click", () => this.remisAnbieten())
         this.feld.knoepfe.aufgeben.addEventListener("click", () => this.aufgeben())
         this.feld.knoepfe.zuruecknehmen.addEventListener("click", () => this.zuruecknehmen())
         this.feld.knoepfe.beenden.addEventListener("click", () => this.uebungBeenden(false))
@@ -732,6 +742,8 @@ class Schachcomputer {
             return
         }
         this.uhrenAnhalten()
+        // Der Zug ist unterwegs: Anbieten geht erst wieder, wenn der Spieler erneut am Zug ist
+        this.feld.knoepfe.remis.hidden = true
         await this.zugMelden(zug.lan, Math.round(performance.now() - this.zugBeginn))
     }
 
@@ -871,6 +883,82 @@ class Schachcomputer {
         if (await this.endeMelden(this.konfiguration.abbrechenUrl)) {
             this.startZeigen()
             this.status(this.texte.abgebrochen)
+        }
+    }
+
+    /**
+     * Bietet Stockfish in einer gewerteten Partie Remis an.
+     *
+     * Stockfish bewertet die Stellung in voller Stärke (VOLLE_STAERKE) rund
+     * eine Sekunde lang – bei knapper Uhr kürzer, mindestens 0,2 s – und nimmt
+     * an, wenn er nicht besser steht (nimmtRemisAn()). Die Prüfung kostet den
+     * Spieler Bedenkzeit: Seine Uhr läuft weiter, die Zugeingabe ist gesperrt.
+     * Die Entscheidung geht an den Server, der Uhr und Rahmenregeln prüft;
+     * seine Antwort gilt. Bei Annahme endet die Partie wie gewohnt, bei
+     * Ablehnung geht es mit derselben Uhr weiter, und die Denkzeit des Zuges
+     * zählt weiter ab seinem Beginn, nicht ab der Ablehnung.
+     *
+     * Liefert Stockfish kein Ergebnis, geht nichts an den Server; die Engine
+     * wird beendet (der nächste Engine-Zug startet sie neu), und der Spieler
+     * zieht weiter. Wechselt inzwischen die Generation (Uhr abgelaufen, Seite
+     * verlassen, aufgegeben), wird nichts mehr verarbeitet.
+     */
+    async remisAnbieten() {
+        const partie = this.partie
+        // Ist schon ein eigener Zug unterwegs, gilt remisErlaubt nicht mehr
+        if (this.modus !== "gewertet" || partie.status !== "laeuft" || !partie.spielerAmZug || !partie.remisErlaubt
+            || this.chess.history().length !== partie.zugnummer) {
+            return
+        }
+        const generation = this.generation
+        const zugBeginn = this.zugBeginn
+        this.feld.knoepfe.remis.disabled = true
+        this.brett.disableMoveInput()
+        this.status(this.texte.remisPruefen)
+        // Ohne Gutschrift gerechnet: Ein Angebot ist kein Zug und bringt keine
+        const zeit = Math.min(REMIS_PRUEFZEIT_MS, zeitBudget(this.uhr.verbleibend(), 0))
+        let bewertung
+        try {
+            const zuege = this.chess.history({verbose: true}).map(zug => zug.lan)
+            bewertung = await mitZeitlimit(this.engine.bewerten(zuege, VOLLE_STAERKE, zeit), REMIS_ZEITLIMIT_MS, "Stockfish hat das Remisangebot nicht rechtzeitig geprüft.")
+        } catch (fehler) {
+            // Eine hängende Suche hielte sonst auch den nächsten Engine-Zug auf
+            this.engine.beenden()
+            if (generation !== this.generation) {
+                return
+            }
+            console.error("Schachcomputer:", fehler)
+            this.knoepfeSetzen()
+            this.status(this.texte.remisFehler, "fehler")
+            this.brett.enableMoveInput(this.eingabe, this.farbe)
+            return
+        }
+        if (generation !== this.generation) {
+            return
+        }
+        let antwort
+        try {
+            antwort = await this.anfrage(this.konfiguration.remisUrl, {
+                partie: partie.id,
+                zugnummer: partie.zugnummer,
+                angenommen: nimmtRemisAn(bewertung)
+            })
+        } catch (fehler) {
+            this.fehler(fehler)
+            return
+        }
+        if (generation !== this.generation) {
+            return
+        }
+        if (!antwort.ok) {
+            await this.partieNeuLaden()
+            return
+        }
+        this.partie = antwort.daten.partie
+        this.weiter()
+        if (this.partie.status === "laeuft" && this.partie.spielerAmZug) {
+            this.zugBeginn = zugBeginn
+            this.status(this.texte.remisAbgelehnt)
         }
     }
 
@@ -1081,6 +1169,10 @@ class Schachcomputer {
 
     /**
      * Blendet die Knöpfe passend zum Stand ein und aus.
+     *
+     * „Remis anbieten“ gibt es nur in gewerteten Partien, wenn der Spieler am
+     * Zug ist und der Server es erlaubt (remisErlaubt); gesperrt ist der Knopf
+     * nur, solange Stockfish ein Angebot prüft (siehe remisAnbieten()).
      */
     knoepfeSetzen() {
         const knoepfe = this.feld.knoepfe
@@ -1090,6 +1182,8 @@ class Schachcomputer {
         const eigeneZuege = this.partie === null ? 0 : this.eigeneZuege()
 
         knoepfe.abbrechen.hidden = uebung || !laeuft || eigeneZuege > 0
+        knoepfe.remis.hidden = uebung || !spielerAmZug || !this.partie.remisErlaubt
+        knoepfe.remis.disabled = false
         knoepfe.aufgeben.hidden = !laeuft || (!uebung && eigeneZuege === 0)
         knoepfe.zuruecknehmen.hidden = !uebung || !laeuft
         knoepfe.zuruecknehmen.disabled = !spielerAmZug || eigeneZuege === 0

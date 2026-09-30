@@ -4,7 +4,7 @@
 
 import {test} from "node:test"
 import assert from "node:assert/strict"
-import {optionsBefehle, goBefehl, rechenzeit, zeitBudget, zufallsZug, bestmove, mitZeitlimit, wasmUrlVon, wasmAdresse, Engine} from "../../src/Resources/public/engine.js"
+import {optionsBefehle, goBefehl, rechenzeit, zeitBudget, zufallsZug, bestmove, bewertungAus, nimmtRemisAn, VOLLE_STAERKE, mitZeitlimit, wasmUrlVon, wasmAdresse, Engine} from "../../src/Resources/public/engine.js"
 
 const GEEICHT = {stufe: 1500, uciElo: 1500, skill: null, tiefe: null, zufall: 0, zeitMin: 1000, zeitMax: 2000}
 const SCHWACH = {stufe: 600, uciElo: null, skill: 0, tiefe: 1, zufall: 0.4, zeitMin: 1000, zeitMax: 2000}
@@ -174,6 +174,107 @@ test("bestmove liest den Zug samt Umwandlung", () => {
     assert.equal(bestmove("bestmove a7a8q"), "a7a8q")
     assert.equal(bestmove("bestmove (none)"), null)
     assert.equal(bestmove("info depth 1"), null)
+})
+
+test("bewertungAus liest die letzte Bewertung, in Centipawns oder als Matt", () => {
+    assert.equal(bewertungAus([]), null)
+    assert.equal(bewertungAus(["info string NNUE evaluation using nn-37f18f62d772.nnue", "info depth 1 seldepth 1 nodes 20"]), null)
+    assert.deepEqual(bewertungAus([
+        "info depth 10 seldepth 14 multipv 1 score cp 35 nodes 12000 nps 400000 pv e2e4 e7e5",
+        "info depth 11 seldepth 15 multipv 1 score cp -12 upperbound nodes 15000 pv e2e4",
+        "info depth 12 seldepth 16 multipv 1 score cp 28 nodes 20000 pv d2d4 d7d5"
+    ]), {cp: 28})
+    assert.deepEqual(bewertungAus(["info depth 5 score cp 10 pv e2e4", "info depth 20 score mate -3 pv h7h8"]), {matt: -3})
+    assert.deepEqual(bewertungAus(["info depth 20 score mate 2 pv h7h8", "info string Ende der Suche"]), {matt: 2})
+})
+
+test("bewertungAus übergeht Nebenvarianten (multipv 2 und höher)", () => {
+    assert.deepEqual(bewertungAus([
+        "info depth 12 multipv 1 score cp 40 pv e2e4",
+        "info depth 12 multipv 2 score cp -80 pv a2a3"
+    ]), {cp: 40})
+})
+
+test("nimmtRemisAn: Stockfish nimmt an, wenn er nicht besser steht", () => {
+    // Die Bewertung gilt aus Sicht der Seite am Zug – das ist der Spieler
+    assert.equal(nimmtRemisAn({cp: 50}), true, "der Spieler steht besser")
+    assert.equal(nimmtRemisAn({cp: 0}), true, "ausgeglichen")
+    assert.equal(nimmtRemisAn({cp: -1}), false, "Stockfish steht besser (+1 aus seiner Sicht)")
+    assert.equal(nimmtRemisAn({cp: -250}), false, "Stockfish steht klar besser")
+    assert.equal(nimmtRemisAn({matt: 3}), true, "gegen Stockfish läuft ein Matt")
+    assert.equal(nimmtRemisAn({matt: -2}), false, "Stockfish setzt matt")
+    assert.equal(nimmtRemisAn({matt: 0}), false, "der Spieler ist schon matt")
+})
+
+test("VOLLE_STAERKE bewertet ohne begrenzte Spielstärke und mit fester Rechenzeit", () => {
+    assert.deepEqual(optionsBefehle(VOLLE_STAERKE), ["setoption name UCI_LimitStrength value false", "setoption name Skill Level value 20"])
+    assert.equal(goBefehl(VOLLE_STAERKE, 800), "go movetime 800")
+})
+
+test("bewerten() rechnet über die Stellung und liefert die letzte Bewertung", async () => {
+    const gesendet = []
+    globalThis.Worker = class {
+        postMessage(befehl) {
+            gesendet.push(befehl)
+            const antworten = {uci: "uciok", isready: "readyok"}
+            const antwort = befehl.startsWith("go")
+                ? "info depth 1 seldepth 1 multipv 1 score cp 12 pv e7e5\ninfo depth 2 seldepth 2 multipv 1 score cp -34 pv e7e5 g1f3\nbestmove e7e5 ponder g1f3"
+                : antworten[befehl]
+            if (antwort) {
+                setTimeout(() => this.onmessage({data: antwort}), 0)
+            }
+        }
+        terminate() {
+        }
+    }
+
+    const engine = neueEngine()
+    const bewertung = await engine.bewerten(["e2e4"], VOLLE_STAERKE, 800)
+
+    assert.deepEqual(bewertung, {cp: -34})
+    assert.deepEqual(gesendet, [
+        "uci", "isready",
+        "setoption name UCI_LimitStrength value false", "setoption name Skill Level value 20", "isready",
+        "position startpos moves e2e4", "go movetime 800"
+    ])
+    engine.beenden()
+    delete globalThis.Worker
+})
+
+test("bewerten() weist ab, wenn Stockfish keine Bewertung meldet", async () => {
+    globalThis.Worker = nachgebildeterWorker(worker => worker.onmessage({data: "bestmove e7e5"}), {erzeugt: [], beendet: []})
+
+    const engine = neueEngine()
+    await assert.rejects(engine.bewerten(["e2e4"], VOLLE_STAERKE, 100), /keine Bewertung/)
+    engine.beenden()
+    delete globalThis.Worker
+})
+
+test("bewerten() läuft über dieselbe Kette wie zug(), nie gleichzeitig", async () => {
+    const gesendet = []
+    globalThis.Worker = class {
+        postMessage(befehl) {
+            gesendet.push(befehl)
+            const antworten = {uci: "uciok", isready: "readyok"}
+            const antwort = befehl.startsWith("go") ? "info depth 1 score cp 5 pv e2e4\nbestmove e2e4" : antworten[befehl]
+            if (antwort) {
+                setTimeout(() => this.onmessage({data: antwort}), 5)
+            }
+        }
+        terminate() {
+        }
+    }
+
+    const engine = neueEngine()
+    const [zug, bewertung] = await Promise.all([engine.zug([], GEEICHT, 100), engine.bewerten([], VOLLE_STAERKE, 100)])
+
+    assert.equal(zug, "e2e4")
+    assert.deepEqual(bewertung, {cp: 5})
+    const erstesGo = gesendet.indexOf("go movetime 100")
+    assert.ok(erstesGo >= 0)
+    assert.ok(gesendet.indexOf("setoption name Skill Level value 20") > erstesGo, "die Bewertung beginnt erst nach der Zugsuche")
+    engine.beenden()
+    delete globalThis.Worker
 })
 
 test("Engine spricht UCI mit dem Worker und liefert den Zug", async () => {

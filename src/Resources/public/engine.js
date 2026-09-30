@@ -100,6 +100,62 @@ export function bestmove(zeile) {
 }
 
 /**
+ * Einstellungen für die Prüfung eines Remisangebots: Stockfish in voller
+ * Stärke mit fester Rechenzeit.
+ *
+ * Die Stufe der Partie taugt dafür nicht. Nachgebaute Stufen rechnen nur bis
+ * Tiefe 1, und bei begrenzter Stärke (UCI_Elo, Skill Level unter 20) sucht
+ * Stockfish mehrere Varianten und meldet für jede eine eigene Bewertung.
+ */
+export const VOLLE_STAERKE = {uciElo: null, skill: 20, tiefe: null}
+
+/**
+ * Liest die Bewertung aus den info-Zeilen einer Suche.
+ *
+ * Maßgeblich ist die letzte „score“-Angabe der Hauptvariante; Zeilen einer
+ * Nebenvariante (multipv 2 und höher) zählen nicht. Die Bewertung gilt nach
+ * UCI aus Sicht der Seite am Zug.
+ *
+ * @param {string[]} zeilen Ausgabezeilen der Engine
+ * @returns {{cp: number}|{matt: number}|null} Centipawns oder Züge bis
+ *          zum Matt (negativ: die Seite am Zug wird mattgesetzt); null, wenn
+ *          keine Zeile eine Bewertung enthält
+ */
+export function bewertungAus(zeilen) {
+    let bewertung = null
+    for (const zeile of zeilen) {
+        const variante = /\bmultipv (\d+)/.exec(zeile)
+        const treffer = /\bscore (cp|mate) (-?\d+)/.exec(zeile)
+        if (!treffer || (variante && variante[1] !== "1")) {
+            continue
+        }
+        bewertung = treffer[1] === "cp" ? {cp: Number(treffer[2])} : {matt: Number(treffer[2])}
+    }
+    return bewertung
+}
+
+/**
+ * Entscheidet, ob Stockfish ein Remisangebot des Spielers annimmt: nur, wenn
+ * er selbst nicht besser steht.
+ *
+ * Der Spieler bietet an, wenn er am Zug ist; die Bewertung gilt also aus
+ * seiner Sicht, Stockfishs Sicht ist das Negative davon. Angenommen wird bei
+ * höchstens 0 Centipawns aus Stockfishs Sicht und bei einem Matt gegen ihn,
+ * abgelehnt bei einem eigenen Matt.
+ *
+ * @param {{cp: number}|{matt: number}} bewertungAusSichtAmZug Ergebnis von bewertungAus()
+ * @returns {boolean} true, wenn Stockfish das Remis annimmt
+ */
+export function nimmtRemisAn(bewertungAusSichtAmZug) {
+    if ("matt" in bewertungAusSichtAmZug) {
+        // matt > 0: der Spieler setzt matt; 0 oder negativ: Stockfish setzt matt
+        return bewertungAusSichtAmZug.matt > 0
+    }
+    const ausSichtStockfish = -bewertungAusSichtAmZug.cp
+    return ausSichtStockfish <= 0
+}
+
+/**
  * Begrenzt die Wartezeit auf ein Versprechen.
  *
  * Das ursprüngliche Versprechen läuft weiter; nur das zurückgegebene weist
@@ -302,19 +358,63 @@ export class Engine {
      *                            ab bei Ausfall oder Beenden der Engine
      */
     zug(zuege, einstellungen, zeit) {
-        const epoche = this.epoche
-        const suche = this.kette.then(() => {
-            if (epoche !== this.epoche) {
-                throw new Error("Stockfish wurde beendet, bevor die Suche beginnen konnte.")
-            }
-            return this.suchen(zuege, einstellungen, zeit)
-        })
-        this.kette = suche.catch(() => undefined)
-        return suche
+        return this.nacheinander(() => this.suchen(zuege, einstellungen, zeit))
     }
 
     /**
-     * Führt eine einzelne Suche aus.
+     * Lässt die Engine die Stellung nach den Zügen bewerten, etwa um über ein
+     * Remisangebot zu entscheiden.
+     *
+     * Läuft über dieselbe Warteschlange wie zug(), also nie gleichzeitig mit
+     * einer Zugsuche, und weist wie diese ab, wenn die Engine vorher beendet
+     * wird oder ausfällt. Die Einstellungen gelten nur für diese Suche; jede
+     * Zugsuche stellt ihre Stufe wieder selbst ein.
+     *
+     * @param {string[]} zuege Bisherige Züge in UCI-Schreibweise ab Grundstellung
+     * @param {Object} einstellungen Einstellungen der Suche, meist VOLLE_STAERKE
+     * @param {number} zeitMs Rechenzeit in ms
+     * @returns {Promise<{cp: number}|{matt: number}>} Die Bewertung aus Sicht der
+     *          Seite am Zug (siehe bewertungAus()); weist ab, wenn die Engine
+     *          keine meldet, ausfällt oder beendet wird
+     */
+    bewerten(zuege, einstellungen, zeitMs) {
+        return this.nacheinander(async () => {
+            const zeilen = []
+            await this.rechnen(zuege, einstellungen, zeitMs, zeile => zeilen.push(zeile))
+            const bewertung = bewertungAus(zeilen)
+            if (!bewertung) {
+                throw new Error("Stockfish hat keine Bewertung geliefert.")
+            }
+            return bewertung
+        })
+    }
+
+    /**
+     * Reiht eine Aufgabe in die Warteschlange der Engine ein.
+     *
+     * Aufgaben laufen nacheinander, damit die Engine nie ein zweites „go“
+     * bekommt, solange sie noch rechnet. Wird die Engine beendet oder fällt
+     * sie aus, bevor eine wartende Aufgabe an der Reihe ist, weist diese ab,
+     * statt einen neuen Worker zu starten; eine gescheiterte Aufgabe hält die
+     * folgenden nicht auf.
+     *
+     * @param {function(): Promise<*>} aufgabe Startet die eigentliche Suche
+     * @returns {Promise<*>} Das Ergebnis der Aufgabe
+     */
+    nacheinander(aufgabe) {
+        const epoche = this.epoche
+        const lauf = this.kette.then(() => {
+            if (epoche !== this.epoche) {
+                throw new Error("Stockfish wurde beendet, bevor die Suche beginnen konnte.")
+            }
+            return aufgabe()
+        })
+        this.kette = lauf.catch(() => undefined)
+        return lauf
+    }
+
+    /**
+     * Führt eine einzelne Zugsuche aus.
      *
      * @param {string[]} zuege Bisherige Züge in UCI-Schreibweise
      * @param {Object} einstellungen Einstellungen der Stufe
@@ -322,17 +422,40 @@ export class Engine {
      * @returns {Promise<string>} Der Zug der Engine
      */
     async suchen(zuege, einstellungen, zeit) {
-        await this.starten()
-        optionsBefehle(einstellungen).forEach(befehl => this.senden(befehl))
-        await this.synchronisieren()
-        this.senden(zuege.length ? `position startpos moves ${zuege.join(" ")}` : "position startpos")
-        const antwort = this.warten(zeile => zeile.startsWith("bestmove"))
-        this.senden(goBefehl(einstellungen, zeit))
-        const zug = bestmove(await antwort)
+        const zug = bestmove(await this.rechnen(zuege, einstellungen, zeit))
         if (!zug) {
             throw new Error("Stockfish hat keinen Zug geliefert.")
         }
         return zug
+    }
+
+    /**
+     * Stellt die Engine ein, übergibt die Stellung und rechnet bis „bestmove“.
+     *
+     * Gemeinsamer Weg von Zugsuche und Bewertung. Die info-Zeilen, die
+     * während der Suche kommen, gehen an aufInfo.
+     *
+     * @param {string[]} zuege Bisherige Züge in UCI-Schreibweise
+     * @param {Object} einstellungen Einstellungen der Suche
+     * @param {number} zeit Rechenzeit in ms (bei festen Tiefen ungenutzt)
+     * @param {function(string): void} [aufInfo] Bekommt jede info-Zeile der Suche
+     * @returns {Promise<string>} Die bestmove-Zeile
+     */
+    async rechnen(zuege, einstellungen, zeit, aufInfo = () => undefined) {
+        await this.starten()
+        optionsBefehle(einstellungen).forEach(befehl => this.senden(befehl))
+        await this.synchronisieren()
+        this.senden(zuege.length ? `position startpos moves ${zuege.join(" ")}` : "position startpos")
+        // Die Bedingung sieht jede Zeile, bis bestmove kommt; info-Zeilen
+        // sammelt sie dabei nebenbei ein
+        const antwort = this.warten(zeile => {
+            if (zeile.startsWith("info")) {
+                aufInfo(zeile)
+            }
+            return zeile.startsWith("bestmove")
+        })
+        this.senden(goBefehl(einstellungen, zeit))
+        return antwort
     }
 
     /**

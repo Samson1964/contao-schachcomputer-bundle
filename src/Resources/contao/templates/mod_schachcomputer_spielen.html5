@@ -44,6 +44,7 @@
         </div>
         <div class="schachcomputer-knoepfe">
           <button type="button" class="schachcomputer-knopf" data-aktion="abbrechen" hidden><?= $this->texte['abbrechen'] ?></button>
+          <button type="button" class="schachcomputer-knopf" data-aktion="remis" hidden><?= $this->texte['remisAnbieten'] ?></button>
           <button type="button" class="schachcomputer-knopf" data-aktion="aufgeben" hidden><?= $this->texte['aufgeben'] ?></button>
           <button type="button" class="schachcomputer-knopf" data-aktion="zuruecknehmen" hidden><?= $this->texte['zuruecknehmen'] ?></button>
           <button type="button" class="schachcomputer-knopf" data-aktion="beenden" hidden><?= $this->texte['beenden'] ?></button>
