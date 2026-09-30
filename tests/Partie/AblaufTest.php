@@ -16,6 +16,7 @@ use Schachbulle\ContaoSchachcomputerBundle\Partie\Ablauf;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partie;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\PartieFehler;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Schiedsrichter;
+use Schachbulle\ContaoSchachcomputerBundle\Tests\Musterpartie;
 
 /**
  * Prüft die Regeln einer Partie mit festen Zeitpunkten.
@@ -26,16 +27,6 @@ class AblaufTest extends TestCase
 	 * Startzeitpunkt aller Testpartien in Millisekunden.
 	 */
 	private const T0 = 1790000000000;
-
-	/**
-	 * 50 regelgerechte Halbzüge (Spanische Partie, Breyer-Verteidigung, dann
-	 * ruhige Figurenzüge) ohne Partieende und ohne Stellungswiederholung.
-	 *
-	 * Die Remisregeln verlangen mindestens 19 eigene Züge, nach einer
-	 * Ablehnung 24; auch PartiedienstTest, PartieControllerTest und PgnTest
-	 * kommen damit bis zum Remisangebot.
-	 */
-	public const ZUEGE = 'e2e4 e7e5 g1f3 b8c6 f1b5 a7a6 b5a4 g8f6 e1g1 f8e7 f1e1 b7b5 a4b3 d7d6 c2c3 e8g8 h2h3 c6b8 d2d4 b8d7 b1d2 c8b7 b3c2 f8e8 d2f1 e7f8 f1g3 g7g6 a2a4 c7c5 d4d5 c5c4 c1g5 h7h6 g5e3 d7c5 d1d2 h6h5 e3g5 f8e7 g1h2 g8g7 e1f1 e8f8 a1e1 a8c8 d2e2 d8d7 e2d1 d7c7';
 
 	/**
 	 * Der Start übernimmt die Bedenkzeit und stellt die Uhr.
@@ -445,7 +436,7 @@ class AblaufTest extends TestCase
 	 */
 	public function testKeinRemisInUebungUndBeendeterPartie(): void
 	{
-		$this->assertFalse(Ablauf::remisErlaubt(Ablauf::uebung(7, 800, 'w', \array_slice(explode(' ', self::ZUEGE), 0, 38), false, self::T0)));
+		$this->assertFalse(Ablauf::remisErlaubt(Ablauf::uebung(7, 800, 'w', Musterpartie::zuege(38), false, self::T0)));
 
 		// Auch eine laufende Partie nicht, sobald sie ungewertet ist
 		$uebung = $this->gespielt('w', 38);
@@ -686,8 +677,8 @@ class AblaufTest extends TestCase
 	}
 
 	/**
-	 * Legt eine Partie an, die schon die ersten Halbzüge aus ZUEGE hinter
-	 * sich hat.
+	 * Legt eine Partie an, die schon die ersten Halbzüge aus Musterpartie
+	 * hinter sich hat.
 	 *
 	 * Die Züge werden gesetzt statt einzeln über zug() gespielt: Jeder Zug
 	 * spielt die ganze Partie nach, 38 Halbzüge kosteten so fast eine halbe
@@ -702,28 +693,29 @@ class AblaufTest extends TestCase
 	private function gespielt(string $farbe, int $halbzuege): Partie
 	{
 		$partie = $this->partie($farbe);
-		$partie->zuege = \array_slice(explode(' ', self::ZUEGE), 0, $halbzuege);
+		$partie->zuege = Musterpartie::zuege($halbzuege);
 		$partie->uhrSeit = self::T0 + $halbzuege * 1000;
 
 		return $partie;
 	}
 
 	/**
-	 * Spielt eine Partie mit den Zügen aus ZUEGE bis zur angegebenen Zahl von
-	 * Halbzügen weiter, jeden Halbzug 1 s nach dem Start der laufenden Uhr.
+	 * Spielt eine Partie mit den Zügen aus Musterpartie bis zur angegebenen
+	 * Zahl von Halbzügen weiter, jeden Halbzug 1 s nach dem Start der
+	 * laufenden Uhr.
 	 *
 	 * Die Spielerzüge melden keine Browsermessung; angerechnet wird also die
 	 * volle Sekunde.
 	 *
 	 * @param Partie $partie Die laufende Partie; ihre bisherigen Züge müssen
-	 *                       der Anfang von ZUEGE sein
+	 *                       der Anfang von Musterpartie::ZUEGE sein
 	 * @param int    $bis    Zahl der Halbzüge danach, höchstens 50
 	 *
 	 * @return Partie Dieselbe Partie
 	 */
 	private function weiterspielen(Partie $partie, int $bis): Partie
 	{
-		$zuege = explode(' ', self::ZUEGE);
+		$zuege = Musterpartie::zuege();
 
 		for ($index = $partie->zugnummer(); $index < $bis; ++$index) {
 			Ablauf::zug($partie, $zuege[$index], $index, null, $partie->uhrSeit + 1000);

@@ -20,7 +20,7 @@ use Schachbulle\ContaoSchachcomputerBundle\Controller\PartieController;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst;
 use Schachbulle\ContaoSchachcomputerBundle\Statistik\Statistik;
 use Schachbulle\ContaoSchachcomputerBundle\Tests\Datenbank;
-use Schachbulle\ContaoSchachcomputerBundle\Tests\Partie\AblaufTest;
+use Schachbulle\ContaoSchachcomputerBundle\Tests\Musterpartie;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Glicko2;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsdienst;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsrechner;
@@ -240,7 +240,7 @@ class PartieControllerTest extends TestCase
 		$partie = $this->daten($controller->start($this->post(array('bedenkzeit' => $this->blitz, 'stufe' => 1500, 'farbe' => 'w'))))['partie'];
 		$this->assertFalse($partie['remisErlaubt']);
 
-		$zuege = explode(' ', AblaufTest::ZUEGE);
+		$zuege = Musterpartie::zuege();
 
 		for ($index = 0; $index < 38; ++$index) {
 			$this->jetzt = self::T0 + ($index + 1) * 1000;

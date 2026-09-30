@@ -22,6 +22,7 @@ use Schachbulle\ContaoSchachcomputerBundle\Partie\Pgn;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\PgnExport;
 use Schachbulle\ContaoSchachcomputerBundle\Statistik\Statistik;
 use Schachbulle\ContaoSchachcomputerBundle\Tests\Datenbank;
+use Schachbulle\ContaoSchachcomputerBundle\Tests\Musterpartie;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Glicko2;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsdienst;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsrechner;
@@ -72,8 +73,8 @@ class PgnTest extends TestCase
 	{
 		$t0 = 1790000000000;
 		$partie = Ablauf::starten(7, '', array('id' => 1, 'minuten' => 3, 'inkrement' => 2, 'klasse' => 'blitz'), 1500, 'w', $t0);
-		// 19 eigene Züge gesetzt statt einzeln gespielt (siehe AblaufTest::gespielt())
-		$partie->zuege = \array_slice(explode(' ', AblaufTest::ZUEGE), 0, 38);
+		// 19 eigene Züge gesetzt statt einzeln gespielt (siehe AblaufTest::gespielt(), Zugfolge aus Musterpartie)
+		$partie->zuege = Musterpartie::zuege(38);
 		$partie->uhrSeit = $t0 + 38000;
 
 		Ablauf::remis($partie, 38, true, $t0 + 40000);

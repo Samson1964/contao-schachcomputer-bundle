@@ -22,6 +22,7 @@ use Schachbulle\ContaoSchachcomputerBundle\Partie\PartieFehler;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Spieler;
 use Schachbulle\ContaoSchachcomputerBundle\Statistik\Statistik;
 use Schachbulle\ContaoSchachcomputerBundle\Tests\Datenbank;
+use Schachbulle\ContaoSchachcomputerBundle\Tests\Musterpartie;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Glicko2;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsdienst;
 use Schachbulle\ContaoSchachcomputerBundle\Wertung\Wertungsrechner;
@@ -635,7 +636,7 @@ class PartiedienstTest extends TestCase
 
 	/**
 	 * Legt eine laufende Partie mit Weiß an, die schon 38 Halbzüge aus
-	 * AblaufTest::ZUEGE hinter sich hat: Der Spieler hat 19 Züge gemacht, ist
+	 * Musterpartie::ZUEGE hinter sich hat: Der Spieler hat 19 Züge gemacht, ist
 	 * am Zug und darf zum ersten Mal Remis anbieten.
 	 *
 	 * Die Züge werden gesetzt statt einzeln gespielt, weil jeder Zug die
@@ -649,7 +650,7 @@ class PartiedienstTest extends TestCase
 	private function bisZumAngebot(Spieler $spieler): Partie
 	{
 		$partie = Ablauf::starten($spieler->memberId() ?? 0, $spieler->gastkennung(), array('id' => $this->blitz, 'minuten' => 3, 'inkrement' => 2, 'klasse' => 'blitz'), 1500, 'w', self::T0);
-		$partie->zuege = \array_slice(explode(' ', AblaufTest::ZUEGE), 0, 38);
+		$partie->zuege = Musterpartie::zuege(38);
 		$partie->uhrSeit = self::T0 + 38000;
 
 		$this->db->insert('tl_schachcomputer_partie', $partie->alsZeile());
