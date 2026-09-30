@@ -68,7 +68,10 @@ Ranglisten. Läuft unter **Contao 4.13 und Contao 5.7** (PHP 8.1 bis 8.4).
 - **Zeiteinteilung von Stockfish:** Die Engine rechnet 1 bis 2 Sekunden je
   Zug, und zwar im Browser des Spielers. Wird ihre Uhr knapp, rechnet sie
   kürzer: höchstens ein Dreißigstel der Restzeit (nach einer Sekunde
-  Reserve) plus die halbe Gutschrift, mindestens 0,2 Sekunden.
+  Reserve) plus die halbe Gutschrift, mindestens 0,2 Sekunden. Mehr als
+  die Uhr hergibt, rechnet sie nie: Die Gutschrift kommt erst mit dem Zug,
+  zur Verfügung stehen also nur die Restzeit und 1 s Ausgleich, abzüglich
+  0,5 s Sicherheitsabstand.
 - **Computer zu spät:** Trifft der Computerzug erst nach Ablauf seiner Uhr
   ein, wird er nicht mehr ausgeführt, und der Computer verliert auf Zeit –
   remis, wenn der Spieler kein Mattmaterial mehr hat.
