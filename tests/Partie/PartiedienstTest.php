@@ -15,6 +15,7 @@ use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 use Psr\Log\NullLogger;
+use Schachbulle\ContaoSchachcomputerBundle\Partie\Ablauf;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partie;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\Partiedienst;
 use Schachbulle\ContaoSchachcomputerBundle\Partie\PartieFehler;
@@ -175,6 +176,43 @@ class PartiedienstTest extends TestCase
 		$this->assertSame('matt', $gespeichert->grund);
 		$this->assertTrue($gespeichert->verrechnet);
 		$this->assertSame(1, (int) $this->db->fetchOne('SELECT siege FROM tl_schachcomputer_spieler WHERE memberId=7'));
+	}
+
+	/**
+	 * Die Uhr des Computers wird mit der Partie gespeichert und geladen.
+	 */
+	public function testComputerUhrWirdGespeichert(): void
+	{
+		$spieler = Spieler::mitglied(7);
+		$partie = $this->dienst->starten($spieler, null, $this->blitz, 1500, 'w', self::T0);
+		$this->assertSame(180000, $this->dienst->laden($partie->id)->restzeitEngine);
+
+		$this->dienst->ziehen($spieler, null, $partie->id, 0, 'e2e4', null, self::T0 + 1000);
+		$this->dienst->ziehen($spieler, null, $partie->id, 1, 'e7e5', null, self::T0 + 4000);
+
+		$this->assertSame(180000 - 3000 + 2000, $this->dienst->laden($partie->id)->restzeitEngine);
+	}
+
+	/**
+	 * Eine Partie aus der Zeit vor der Uhr des Computers (Spalte mit ihrem
+	 * Standardwert) bekommt auch nach Zügen keine Uhr des Computers.
+	 */
+	public function testAltpartieBehaeltKeineComputerUhr(): void
+	{
+		$spieler = Spieler::mitglied(7);
+		$zeile = Ablauf::starten(7, '', array('id' => $this->blitz, 'minuten' => 3, 'inkrement' => 2, 'klasse' => 'blitz'), 1500, 'w', self::T0)->alsZeile();
+		unset($zeile['restzeitEngine']);
+		$this->db->insert('tl_schachcomputer_partie', $zeile);
+		$id = (int) $this->db->lastInsertId();
+		$this->assertSame(-1, $this->dienst->laden($id)->restzeitEngine);
+
+		$this->dienst->ziehen($spieler, null, $id, 0, 'e2e4', null, self::T0 + 1000);
+		$this->dienst->ziehen($spieler, null, $id, 1, 'e7e5', null, self::T0 + 50000);
+
+		$geladen = $this->dienst->laden($id);
+		$this->assertSame(Partie::LAEUFT, $geladen->status);
+		$this->assertSame(array('e2e4', 'e7e5'), $geladen->zuege);
+		$this->assertSame(-1, $geladen->restzeitEngine);
 	}
 
 	/**

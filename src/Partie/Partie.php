@@ -16,12 +16,15 @@ namespace Schachbulle\ContaoSchachcomputerBundle\Partie;
  *
  * Reiner Datenträger mit Umrechnung von und zu einer Datenbankzeile; die
  * Regeln stehen in Ablauf, das Speichern in Partiedienst. Zeitpunkte in
- * Sekunden (beginn, ende), Uhrzeiten in Millisekunden (restzeit, uhrSeit,
- * zeiten).
+ * Sekunden (beginn, ende), Uhrzeiten in Millisekunden (restzeit,
+ * restzeitEngine, uhrSeit, zeiten).
  *
- * restzeit ist die Restzeit des Spielers zum Zeitpunkt uhrSeit. Ist der
- * Spieler am Zug, läuft seine Uhr seit uhrSeit; ist die Engine am Zug,
- * steht sie, und uhrSeit markiert den Beginn der Engine-Frist.
+ * restzeit ist die Restzeit des Spielers, restzeitEngine die des Computers,
+ * beide zum Zeitpunkt uhrSeit. Wer am Zug ist, dessen Uhr läuft seit uhrSeit
+ * (beim Spieler erst ab seinem zweiten Zug); die andere steht. Ist die
+ * Engine am Zug, markiert uhrSeit zugleich den Beginn der Engine-Frist.
+ * restzeitEngine = -1 kennzeichnet Partien, die vor Fassung 1.1.0 begonnen
+ * wurden und keine Uhr des Computers haben.
  */
 final class Partie
 {
@@ -103,6 +106,12 @@ final class Partie
 
 	public int $restzeit = 0;
 
+	/**
+	 * Restzeit des Computers in ms; -1, wenn die Partie keine Uhr des
+	 * Computers hat (Übungspartien und Partien von vor Fassung 1.1.0).
+	 */
+	public int $restzeitEngine = -1;
+
 	public int $uhrSeit = 0;
 
 	public int $beginn = 0;
@@ -145,6 +154,7 @@ final class Partie
 		$zeiten = json_decode((string) $zeile['zeiten'], true);
 		$partie->zeiten = \is_array($zeiten) ? array_map('intval', $zeiten) : array();
 		$partie->restzeit = (int) $zeile['restzeit'];
+		$partie->restzeitEngine = (int) $zeile['restzeitEngine'];
 		$partie->uhrSeit = (int) $zeile['uhrSeit'];
 		$partie->beginn = (int) $zeile['beginn'];
 		$partie->ende = (int) $zeile['ende'];
@@ -182,6 +192,7 @@ final class Partie
 			'zeiten'         => json_encode(array_values($this->zeiten)),
 			'zugnummer'      => $this->zugnummer(),
 			'restzeit'       => $this->restzeit,
+			'restzeitEngine' => $this->restzeitEngine,
 			'uhrSeit'        => $this->uhrSeit,
 			'beginn'         => $this->beginn,
 			'ende'           => $this->ende,

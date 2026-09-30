@@ -11,6 +11,11 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoSchachcomputerBundle\Tests;
 
+use Contao\CoreBundle\Doctrine\Schema\DcaSchemaProvider;
+use Contao\CoreBundle\Framework\ContaoFramework;
+use Doctrine\Bundle\DoctrineBundle\Registry;
+use Doctrine\DBAL\DriverManager;
+use Doctrine\DBAL\Schema\Table;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -46,6 +51,45 @@ class DatenbankSchemaTest extends TestCase
 		sort($dca);
 		sort($sqlite);
 		$this->assertSame($dca, $sqlite);
+	}
+
+	/**
+	 * Die Uhr des Computers steht in MySQL und SQLite auf -1, solange nichts
+	 * anderes gespeichert wird.
+	 *
+	 * -1 kennzeichnet Partien, die vor Fassung 1.1.0 begonnen wurden; sie
+	 * bekommen die Spalte beim Update mit ihrem Standardwert. Contao liest den
+	 * Standardwert per regulärem Ausdruck aus der sql-Angabe und erkennt dabei
+	 * nur Ziffern oder Werte in Anführungszeichen. Ein „default -1“ ohne
+	 * Anführungszeichen ginge verloren, MySQL füllte die bestehenden Zeilen
+	 * mit 0, und in jeder laufenden Altpartie verlöre der Computer beim
+	 * nächsten Zug auf Zeit. Deshalb wird hier Contaos eigener Leser
+	 * aufgerufen (private Methode per Reflection, Stand Contao 5.7).
+	 */
+	public function testComputerUhrStandardwertMinusEins(): void
+	{
+		$GLOBALS['TL_DCA'] = array();
+		$GLOBALS['TL_LANG'] = array();
+		include __DIR__.'/../src/Resources/contao/dca/tl_schachcomputer_partie.php';
+		$sql = $GLOBALS['TL_DCA']['tl_schachcomputer_partie']['fields']['restzeitEngine']['sql'];
+		unset($GLOBALS['TL_DCA'], $GLOBALS['TL_LANG']);
+
+		// serverVersion erspart die Verbindung zu einem MySQL-Server
+		$doctrine = $this->createMock(Registry::class);
+		$doctrine->method('getConnection')->willReturn(DriverManager::getConnection(array('driver' => 'pdo_mysql', 'serverVersion' => '8.0.30')));
+		$leser = new \ReflectionMethod(DcaSchemaProvider::class, 'parseColumnSql');
+		$leser->setAccessible(true);
+		$tabelle = new Table('tl_schachcomputer_partie');
+		$leser->invoke(new DcaSchemaProvider($this->createMock(ContaoFramework::class), $doctrine), $tabelle, 'restzeitEngine', $sql);
+
+		$spalte = $tabelle->getColumn('restzeitEngine');
+		$this->assertSame('-1', (string) $spalte->getDefault());
+		$this->assertFalse($spalte->getUnsigned());
+		$this->assertTrue($spalte->getNotnull());
+
+		$sqlite = Datenbank::verbindung();
+		$sqlite->executeStatement("INSERT INTO tl_schachcomputer_partie (gast) VALUES ('alt')");
+		$this->assertSame(-1, (int) $sqlite->fetchOne('SELECT restzeitEngine FROM tl_schachcomputer_partie'));
 	}
 
 	/**

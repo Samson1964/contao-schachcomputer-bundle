@@ -39,6 +39,7 @@ class AblaufTest extends TestCase
 		$this->assertSame(3, $partie->bedenkzeit);
 		$this->assertSame('blitz', $partie->klasse);
 		$this->assertSame(180000, $partie->restzeit);
+		$this->assertSame(180000, $partie->restzeitEngine);
 		$this->assertSame(self::T0, $partie->uhrSeit);
 		$this->assertSame(1790000000, $partie->beginn);
 		$this->assertFalse($partie->spielerAmZug());
@@ -238,6 +239,140 @@ class AblaufTest extends TestCase
 	}
 
 	/**
+	 * Die Uhr des Computers verliert die vom Server gemessene Zeit zwischen
+	 * Spielerzug und Computerzug und bekommt danach die Gutschrift; die Uhr
+	 * des Spielers bleibt davon unberührt.
+	 */
+	public function testComputerUhrAbzugUndGutschrift(): void
+	{
+		$partie = $this->partie('w');
+		Ablauf::zug($partie, 'e2e4', 0, 800, self::T0 + 1000);
+		$this->assertSame(180000, $partie->restzeitEngine);
+
+		// 3 s vom gespeicherten Spielerzug bis zum Eintreffen des Computerzugs
+		Ablauf::zug($partie, 'e7e5', 1, null, self::T0 + 4000);
+		$this->assertSame(180000 - 3000 + 2000, $partie->restzeitEngine);
+		$this->assertSame(180000, $partie->restzeit);
+
+		// Während der Spieler denkt, steht die Uhr des Computers
+		Ablauf::zug($partie, 'g1f3', 2, 6000, self::T0 + 10000);
+		$this->assertSame(179000, $partie->restzeitEngine);
+		$this->assertSame(180000 - 6000 + 2000, $partie->restzeit);
+
+		Ablauf::zug($partie, 'b8c6', 3, null, self::T0 + 15000);
+		$this->assertSame(179000 - 5000 + 2000, $partie->restzeitEngine);
+		$this->assertSame(array(0, 6000), $partie->zeiten);
+		$this->assertSame(Partie::LAEUFT, $partie->status);
+	}
+
+	/**
+	 * Hat der Computer Weiß, läuft seine Uhr ab dem Start, und schon sein
+	 * erster Zug wird abgezogen und gutgeschrieben (keine Sonderregel wie
+	 * beim ersten Zug des Spielers).
+	 */
+	public function testComputerMitWeissZiehtAbDemErstenZugAb(): void
+	{
+		$partie = $this->partie('b');
+
+		Ablauf::zug($partie, 'e2e4', 0, null, self::T0 + 2500);
+
+		$this->assertSame(180000 - 2500 + 2000, $partie->restzeitEngine);
+		$this->assertSame(180000, $partie->restzeit);
+		$this->assertSame(self::T0 + 2500, $partie->uhrSeit);
+	}
+
+	/**
+	 * Trifft der Computerzug nach Ablauf seiner Uhr ein, wird er nicht
+	 * ausgeführt, und der Computer verliert auf Zeit. Ein Zug genau zum
+	 * Ablauf gilt noch als rechtzeitig.
+	 */
+	public function testComputerZugNachAblaufSeinerUhr(): void
+	{
+		$rechtzeitig = $this->partie('w');
+		Ablauf::zug($rechtzeitig, 'e2e4', 0, null, self::T0 + 1000);
+		$rechtzeitig->restzeitEngine = 5000;
+		Ablauf::zug($rechtzeitig, 'e7e5', 1, null, self::T0 + 6000);
+		$this->assertSame(Partie::LAEUFT, $rechtzeitig->status);
+		$this->assertSame(0 + 2000, $rechtzeitig->restzeitEngine);
+
+		$zuSpaet = $this->partie('w');
+		Ablauf::zug($zuSpaet, 'e2e4', 0, null, self::T0 + 1000);
+		$zuSpaet->restzeitEngine = 5000;
+		Ablauf::zug($zuSpaet, 'e7e5', 1, null, self::T0 + 6001);
+
+		$this->assertSame(Partie::BEENDET, $zuSpaet->status);
+		$this->assertSame('zeit', $zuSpaet->grund);
+		$this->assertSame(Partie::SIEG_WEISS, $zuSpaet->ergebnis);
+		$this->assertSame(1.0, $zuSpaet->punkte());
+		$this->assertSame(0, $zuSpaet->restzeitEngine);
+		$this->assertSame(180000, $zuSpaet->restzeit);
+		$this->assertSame(array('e2e4'), $zuSpaet->zuege);
+		$this->assertSame(1790000006, $zuSpaet->ende);
+	}
+
+	/**
+	 * Verliert der Computer auf Zeit, während der Spieler kein Mattmaterial
+	 * mehr hat, endet die Partie remis – das Gegenstück zu
+	 * punkteBeiZeitablauf().
+	 */
+	public function testComputerZeitverlustOhneMattmaterialDesSpielers(): void
+	{
+		// Der Spieler hat Weiß; Schwarz (Computer) hat noch eine Dame
+		$partie = $this->partie('w');
+
+		$this->assertSame(0.5, Ablauf::punkteBeiEngineZeitablauf($partie, new Schiedsrichter('kq6/8/8/8/8/8/8/KN6 w - - 0 1')));
+		$this->assertSame(1.0, Ablauf::punkteBeiEngineZeitablauf($partie, new Schiedsrichter('kq6/8/8/8/8/8/8/KR6 w - - 0 1')));
+
+		$schwarz = $this->partie('b');
+		$this->assertSame(0.5, Ablauf::punkteBeiEngineZeitablauf($schwarz, new Schiedsrichter('k7/8/8/8/8/8/8/K6Q w - - 0 1')));
+		$this->assertSame(1.0, Ablauf::punkteBeiEngineZeitablauf($schwarz, new Schiedsrichter('kr6/8/8/8/8/8/8/K6Q w - - 0 1')));
+	}
+
+	/**
+	 * Bleibt der Computerzug ganz aus, zählt allein die Engine-Frist: Weder
+	 * die Prüfung noch ein verspäteter Zug werten die abgelaufene Uhr des
+	 * Computers als Zeitverlust, nach 60 s gilt die Partie als verlassen.
+	 */
+	public function testAusbleibenderComputerZugTrotzAbgelaufenerComputerUhr(): void
+	{
+		$geprueft = $this->partie('w');
+		Ablauf::zug($geprueft, 'e2e4', 0, null, self::T0 + 1000);
+		$geprueft->restzeitEngine = 10000;
+
+		$this->assertFalse(Ablauf::pruefen($geprueft, self::T0 + 1000 + 30000));
+		$this->assertSame(Partie::LAEUFT, $geprueft->status);
+		$this->assertFalse(Ablauf::pruefen($geprueft, self::T0 + 1000 + 60000));
+		$this->assertTrue(Ablauf::pruefen($geprueft, self::T0 + 1000 + 60001));
+		$this->assertSame('verlassen', $geprueft->grund);
+		$this->assertSame(0.0, $geprueft->punkte());
+
+		// Kommt der Zug erst nach der Frist, bleibt es beim Verlassen
+		$gezogen = $this->partie('w');
+		Ablauf::zug($gezogen, 'e2e4', 0, null, self::T0 + 1000);
+		$gezogen->restzeitEngine = 10000;
+		Ablauf::zug($gezogen, 'e7e5', 1, null, self::T0 + 1000 + 60001);
+		$this->assertSame('verlassen', $gezogen->grund);
+		$this->assertSame(0.0, $gezogen->punkte());
+	}
+
+	/**
+	 * Partien von vor Fassung 1.1.0 haben keine Uhr des Computers (-1):
+	 * kein Abzug, keine Gutschrift, kein Zeitverlust des Computers.
+	 */
+	public function testAltpartieOhneComputerUhr(): void
+	{
+		$partie = $this->partie('w');
+		$partie->restzeitEngine = -1;
+		Ablauf::zug($partie, 'e2e4', 0, null, self::T0 + 1000);
+
+		Ablauf::zug($partie, 'e7e5', 1, null, self::T0 + 1000 + 50000);
+
+		$this->assertSame(Partie::LAEUFT, $partie->status);
+		$this->assertSame(-1, $partie->restzeitEngine);
+		$this->assertSame(array('e2e4', 'e7e5'), $partie->zuege);
+	}
+
+	/**
 	 * Aufgeben ist jederzeit möglich und zählt als Niederlage.
 	 */
 	public function testAufgeben(): void
@@ -340,8 +475,12 @@ class AblaufTest extends TestCase
 		$this->assertSame(array('e2e4'), $zurueck->zuege);
 		$this->assertSame(array(0), $zurueck->zeiten);
 		$this->assertSame($partie->uhrSeit, $zurueck->uhrSeit);
+		$this->assertSame(180000, $zurueck->restzeitEngine);
 		$this->assertTrue($zurueck->gewertet);
 		$this->assertSame(1, $partie->alsZeile()['zugnummer']);
+
+		// Altpartien ohne Uhr des Computers behalten ihr Kennzeichen -1
+		$this->assertSame(-1, Partie::ausZeile(array('restzeitEngine' => '-1') + $zeile)->restzeitEngine);
 	}
 
 	/**

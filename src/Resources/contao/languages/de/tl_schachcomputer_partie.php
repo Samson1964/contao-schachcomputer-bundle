@@ -26,6 +26,7 @@ $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['zuege'] = array('Züge', 'Alle 
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['zeiten'] = array('Denkzeiten', 'Angerechnete Denkzeit je Spielerzug in Millisekunden.');
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['zugnummer'] = array('Halbzüge', 'Zahl der gespielten Halbzüge.');
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['restzeit'] = array('Restzeit', 'Restzeit des Spielers in Millisekunden.');
+$GLOBALS['TL_LANG']['tl_schachcomputer_partie']['restzeitEngine'] = array('Restzeit des Computers', 'Restzeit von Stockfish in Millisekunden; -1 bei Partien ohne Uhr des Computers (vor Fassung 1.1.0).');
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['uhrSeit'] = array('Uhr seit', 'Start der laufenden Uhr in Millisekunden.');
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['beginn'] = array('Beginn', 'Start der Partie.');
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['ende'] = array('Ende', 'Ende der Partie.');

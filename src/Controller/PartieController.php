@@ -317,6 +317,9 @@ class PartieController
 	 *
 	 * restzeit ist bei laufender Uhr schon um die vergangene Zeit gekürzt.
 	 * ersterZugFrist nennt die verbleibende Frist für den ersten eigenen Zug.
+	 * Für den Computer gilt dasselbe: restzeitEngine ist bei laufender Uhr
+	 * (engineUhrLaeuft) auf jetzt umgerechnet, sonst der gespeicherte Wert;
+	 * -1 heißt, die Partie hat keine Uhr des Computers (vor Fassung 1.1.0).
 	 *
 	 * @param Partie $partie Die Partie
 	 * @param int    $jetzt  Aktueller Zeitpunkt in ms
@@ -328,29 +331,32 @@ class PartieController
 		$laeuft = Partie::LAEUFT === $partie->status;
 		$uhrLaeuft = $laeuft && $partie->spielerAmZug() && $partie->eigeneZuege() > 0;
 		$ersterZug = $laeuft && $partie->spielerAmZug() && 0 === $partie->eigeneZuege();
+		$engineUhrLaeuft = $laeuft && !$partie->spielerAmZug() && $partie->restzeitEngine >= 0;
 
 		return array(
-			'id'             => $partie->id,
-			'gewertet'       => $partie->gewertet,
-			'farbe'          => $partie->farbe,
-			'stufe'          => $partie->stufe,
-			'einstellungen'  => Stufen::einstellungen($partie->stufe),
-			'klasse'         => $partie->klasse,
-			'minuten'        => $partie->minuten,
-			'inkrement'      => $partie->inkrement,
-			'zuege'          => $partie->zuege,
-			'zugnummer'      => $partie->zugnummer(),
-			'status'         => $partie->status,
-			'ergebnis'       => $partie->ergebnis,
-			'grund'          => $partie->grund,
-			'punkte'         => $partie->punkte(),
-			'spielerAmZug'   => $laeuft && $partie->spielerAmZug(),
-			'uhrLaeuft'      => $uhrLaeuft,
-			'restzeit'       => $uhrLaeuft ? Uhr::verbleibend($partie->restzeit, $partie->uhrSeit, $jetzt) : $partie->restzeit,
-			'ersterZugFrist' => $ersterZug ? max(0, Uhr::ERSTER_ZUG_MS - ($jetzt - $partie->uhrSeit)) : null,
-			'verrechnet'     => $partie->verrechnet,
-			'wertungVorher'  => (int) round($partie->wertungVorher),
-			'wertungNachher' => (int) round($partie->wertungNachher),
+			'id'              => $partie->id,
+			'gewertet'        => $partie->gewertet,
+			'farbe'           => $partie->farbe,
+			'stufe'           => $partie->stufe,
+			'einstellungen'   => Stufen::einstellungen($partie->stufe),
+			'klasse'          => $partie->klasse,
+			'minuten'         => $partie->minuten,
+			'inkrement'       => $partie->inkrement,
+			'zuege'           => $partie->zuege,
+			'zugnummer'       => $partie->zugnummer(),
+			'status'          => $partie->status,
+			'ergebnis'        => $partie->ergebnis,
+			'grund'           => $partie->grund,
+			'punkte'          => $partie->punkte(),
+			'spielerAmZug'    => $laeuft && $partie->spielerAmZug(),
+			'uhrLaeuft'       => $uhrLaeuft,
+			'restzeit'        => $uhrLaeuft ? Uhr::verbleibend($partie->restzeit, $partie->uhrSeit, $jetzt) : $partie->restzeit,
+			'ersterZugFrist'  => $ersterZug ? max(0, Uhr::ERSTER_ZUG_MS - ($jetzt - $partie->uhrSeit)) : null,
+			'engineUhrLaeuft' => $engineUhrLaeuft,
+			'restzeitEngine'  => $engineUhrLaeuft ? Uhr::verbleibend($partie->restzeitEngine, $partie->uhrSeit, $jetzt) : $partie->restzeitEngine,
+			'verrechnet'      => $partie->verrechnet,
+			'wertungVorher'   => (int) round($partie->wertungVorher),
+			'wertungNachher'  => (int) round($partie->wertungNachher),
 		);
 	}
 

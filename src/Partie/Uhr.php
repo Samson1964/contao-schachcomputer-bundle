@@ -14,14 +14,18 @@ namespace Schachbulle\ContaoSchachcomputerBundle\Partie;
 /**
  * Rechenregeln der Schachuhr. Alle Zeiten in Millisekunden.
  *
- * Nur der Spieler hat eine Uhr. Eine vom Server durchgesetzte Engine-Uhr
- * ließe sich ablaufen lassen, indem der Browser den Engine-Zug zurückhält;
- * die Engine hat stattdessen eine feste Frist (ENGINE_FRIST_MS).
+ * Spieler und Computer haben je eine Uhr (die des Computers seit Fassung
+ * 1.1.0). Ob die Uhr des Computers abgelaufen ist, zählt nur beim Eintreffen
+ * seines Zuges; bleibt der Zug ganz aus, greift allein die feste Frist
+ * ENGINE_FRIST_MS. Sonst gewönne, wer nach dem eigenen Zug den Tab schließt,
+ * denn Stockfish rechnet im Browser des Spielers.
  *
- * Der Server misst die Denkzeit vom Annehmen des Engine-Zugs bis zum
- * Eintreffen des Spielerzugs. Darin steckt die Übertragungszeit. Deshalb
- * zählt die im Browser gemessene Denkzeit, solange sie höchstens
- * AUSGLEICH_MS unter der Servermessung liegt.
+ * Der Server misst die Denkzeit des Spielers vom Annehmen des Engine-Zugs
+ * bis zum Eintreffen des Spielerzugs. Darin steckt die Übertragungszeit.
+ * Deshalb zählt die im Browser gemessene Denkzeit, solange sie höchstens
+ * AUSGLEICH_MS unter der Servermessung liegt. Die Zeit des Computers misst
+ * der Server allein, vom Speichern des Spielerzugs bis zum Eintreffen des
+ * Computerzugs.
  */
 final class Uhr
 {

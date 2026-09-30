@@ -19,7 +19,8 @@ use Schachbulle\ContaoSchachcomputerBundle\Wertung\Klassen;
  * Aufbau siehe Partie\Partie. zugnummer ist die Zahl der Halbzüge und dient
  * beim Speichern als Versionsnummer (bedingtes UPDATE), damit zwei
  * gleichzeitige Anfragen einander nicht überschreiben. Uhrzeiten stehen in
- * Millisekunden (restzeit, uhrSeit, zeiten), Zeitpunkte in Sekunden.
+ * Millisekunden (restzeit, restzeitEngine, uhrSeit, zeiten), Zeitpunkte in
+ * Sekunden.
  * Im Backend nur lesen, als PGN herunterladen und löschen.
  */
 $GLOBALS['TL_DCA']['tl_schachcomputer_partie'] = array
@@ -178,6 +179,14 @@ $GLOBALS['TL_DCA']['tl_schachcomputer_partie'] = array
 		'restzeit' => array
 		(
 			'sql' => "int(10) unsigned NOT NULL default '0'",
+		),
+		// Vorzeichenbehaftet: -1 heißt „keine Uhr des Computers“ (Partien von
+		// vor 1.1.0 bekommen beim Update diesen Standardwert). Der Wert steht in
+		// Anführungszeichen, weil Contao ein unquotiertes -1 nicht als
+		// Standardwert erkennt (siehe DatenbankSchemaTest).
+		'restzeitEngine' => array
+		(
+			'sql' => "int(10) NOT NULL default '-1'",
 		),
 		'uhrSeit' => array
 		(

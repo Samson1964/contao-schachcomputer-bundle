@@ -26,6 +26,7 @@ $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['zuege'] = array('Moves', 'All m
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['zeiten'] = array('Thinking times', 'Time charged per player move in milliseconds.');
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['zugnummer'] = array('Plies', 'Number of plies played.');
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['restzeit'] = array('Remaining time', 'Remaining time of the player in milliseconds.');
+$GLOBALS['TL_LANG']['tl_schachcomputer_partie']['restzeitEngine'] = array('Computer\'s remaining time', 'Remaining time of Stockfish in milliseconds; -1 for games without a computer clock (before version 1.1.0).');
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['uhrSeit'] = array('Clock since', 'Start of the running clock in milliseconds.');
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['beginn'] = array('Start', 'Start of the game.');
 $GLOBALS['TL_LANG']['tl_schachcomputer_partie']['ende'] = array('End', 'End of the game.');

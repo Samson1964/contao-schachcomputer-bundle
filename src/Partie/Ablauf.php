@@ -21,11 +21,14 @@ use Schachbulle\ContaoSchachcomputerBundle\Engine\Stufen;
  * Verrechnen übernimmt der Partiedienst. So lassen sich alle Regeln mit
  * festen Zeitpunkten testen.
  *
- * Zeitregeln (siehe Uhr): Nur der Spieler hat eine Uhr. Sie läuft ab seinem
- * zweiten Zug; für den ersten gibt es weder Abzug noch Gutschrift, aber eine
- * Frist von 60 s, danach wird ungewertet abgebrochen. Ein Engine-Zug muss
- * innerhalb von 60 s eintreffen, sonst gilt die Partie als verlassen und ist
- * verloren – vor dem ersten eigenen Zug wird stattdessen abgebrochen.
+ * Zeitregeln (siehe Uhr): Die Uhr des Spielers läuft ab seinem zweiten Zug;
+ * für den ersten gibt es weder Abzug noch Gutschrift, aber eine Frist von
+ * 60 s, danach wird ungewertet abgebrochen. Die Uhr des Computers (seit
+ * Fassung 1.1.0) läuft ab dem ersten Computerzug mit Abzug und Gutschrift;
+ * ob sie abgelaufen ist, zählt nur beim Eintreffen seines Zuges. Ein
+ * Engine-Zug muss außerdem innerhalb von 60 s eintreffen, sonst gilt die
+ * Partie als verlassen und ist verloren – vor dem ersten eigenen Zug wird
+ * stattdessen abgebrochen.
  */
 final class Ablauf
 {
@@ -37,7 +40,10 @@ final class Ablauf
 	/**
 	 * Legt eine neue gewertete Partie an.
 	 *
-	 * @param int                                                     $memberId   ID aus tl_member, 0 für Gäste
+	 * Beide Uhren bekommen die Grundbedenkzeit. Hat der Computer Weiß, läuft
+	 * seine Uhr ab jetzt (uhrSeit).
+	 *
+	 * @param int                                                    $memberId   ID aus tl_member, 0 für Gäste
 	 * @param string                                                  $gast       Gastkennung, leer bei Mitgliedern
 	 * @param array{id: int, minuten: int, inkrement: int, klasse: string} $bedenkzeit Zeile aus tl_schachcomputer_bedenkzeit;
 	 *                                                                                  die Werte werden in die Partie kopiert
@@ -67,6 +73,7 @@ final class Ablauf
 		$partie->farbe = $farbe;
 		$partie->status = Partie::LAEUFT;
 		$partie->restzeit = $partie->minuten * 60000;
+		$partie->restzeitEngine = $partie->minuten * 60000;
 		$partie->uhrSeit = $jetztMs;
 		$partie->beginn = intdiv($jetztMs, 1000);
 
@@ -80,6 +87,12 @@ final class Ablauf
 	 * spät, wird er nicht ausgeführt, sondern die Partie wegen Zeit, Verlassen
 	 * oder verpasster Frist des ersten Zugs beendet; die Methode kehrt dann
 	 * ohne Fehler zurück, der Aufrufer erkennt es am Status.
+	 *
+	 * Beim Computerzug zählt zuerst die Engine-Frist (verlassen), dann die Uhr
+	 * des Computers: Der Server zieht die selbst gemessene Zeit seit uhrSeit
+	 * ab und schreibt die Gutschrift gut; war die Uhr schon abgelaufen,
+	 * verliert der Computer auf Zeit. Partien ohne Uhr des Computers
+	 * (restzeitEngine -1, vor Fassung 1.1.0) bleiben davon unberührt.
 	 *
 	 * @param Partie   $partie     Die laufende Partie
 	 * @param string   $zug        Der Zug in UCI-Schreibweise
@@ -106,6 +119,7 @@ final class Ablauf
 		$vergangen = $jetztMs - $partie->uhrSeit;
 		$abzug = 0;
 		$restzeit = $partie->restzeit;
+		$restzeitEngine = $partie->restzeitEngine;
 
 		if ($spielerZieht && 0 === $partie->eigeneZuege()) {
 			if ($vergangen > Uhr::ERSTER_ZUG_MS + Uhr::AUSGLEICH_MS) {
@@ -126,6 +140,16 @@ final class Ablauf
 			self::verlassen($partie, $jetztMs);
 
 			return;
+		} elseif ($partie->restzeitEngine >= 0) {
+			// Ohne Browsermessung zieht abzug() die volle Servermessung ab.
+			// Die Gutschrift gibt es schon ab dem ersten Computerzug.
+			$restzeitEngine = Uhr::nachZug($partie->restzeitEngine, Uhr::abzug($vergangen, null), $partie->inkrement * 1000);
+
+			if (null === $restzeitEngine) {
+				self::engineZeitAbgelaufen($partie, $schiedsrichter, $jetztMs);
+
+				return;
+			}
 		}
 
 		if (!$schiedsrichter->ziehen($zug)) {
@@ -137,6 +161,8 @@ final class Ablauf
 		if ($spielerZieht) {
 			$partie->zeiten[] = $abzug;
 			$partie->restzeit = $restzeit;
+		} else {
+			$partie->restzeitEngine = $restzeitEngine;
 		}
 
 		$partie->uhrSeit = $jetztMs;
@@ -154,6 +180,12 @@ final class Ablauf
 	 *
 	 * Aufgerufen beim Abruf des Stands und minütlich vom Cronjob, damit auch
 	 * verlassene Partien in die Wertung eingehen.
+	 *
+	 * Die Uhr des Computers wird hier absichtlich nicht geprüft: Stockfish
+	 * rechnet im Browser des Spielers. Verlöre der Computer schon ohne
+	 * eingetroffenen Zug auf Zeit, gewönne, wer nach dem eigenen Zug den Tab
+	 * schließt. Ein ausbleibender Computerzug zählt deshalb nur über die
+	 * Engine-Frist als verlassen.
 	 *
 	 * @param Partie $partie  Die Partie
 	 * @param int    $jetztMs Aktueller Zeitpunkt
@@ -325,6 +357,23 @@ final class Ablauf
 	}
 
 	/**
+	 * Punkte des Spielers, wenn die Zeit des Computers abgelaufen ist.
+	 *
+	 * Das Gegenstück zu punkteBeiZeitablauf(): Entscheidend ist hier, ob der
+	 * Spieler selbst noch mattsetzen könnte.
+	 *
+	 * @param Partie         $partie         Die Partie
+	 * @param Schiedsrichter $schiedsrichter Die aktuelle Stellung (vor dem
+	 *                                       verspäteten Computerzug)
+	 *
+	 * @return float 1, wenn der Spieler mattsetzen könnte; sonst 0,5 (Remis)
+	 */
+	public static function punkteBeiEngineZeitablauf(Partie $partie, Schiedsrichter $schiedsrichter): float
+	{
+		return $schiedsrichter->mattmaterial($partie->farbe) ? 1.0 : 0.5;
+	}
+
+	/**
 	 * Beendet die Partie wegen abgelaufener Zeit des Spielers.
 	 *
 	 * @param Partie         $partie         Die Partie
@@ -335,6 +384,23 @@ final class Ablauf
 	{
 		$partie->restzeit = 0;
 		self::beenden($partie, 'zeit', self::punkteBeiZeitablauf($partie, $schiedsrichter), $jetztMs);
+	}
+
+	/**
+	 * Beendet die Partie, weil der Zug des Computers nach Ablauf seiner Uhr
+	 * eingetroffen ist.
+	 *
+	 * Der verspätete Zug wird nicht ausgeführt; die Uhr des Computers steht
+	 * danach auf 0, die des Spielers bleibt, wie sie war.
+	 *
+	 * @param Partie         $partie         Die Partie
+	 * @param Schiedsrichter $schiedsrichter Die Stellung vor dem verspäteten Zug
+	 * @param int            $jetztMs        Aktueller Zeitpunkt
+	 */
+	private static function engineZeitAbgelaufen(Partie $partie, Schiedsrichter $schiedsrichter, int $jetztMs): void
+	{
+		$partie->restzeitEngine = 0;
+		self::beenden($partie, 'zeit', self::punkteBeiEngineZeitablauf($partie, $schiedsrichter), $jetztMs);
 	}
 
 	/**

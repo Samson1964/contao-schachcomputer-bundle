@@ -35,6 +35,11 @@ use Symfony\Component\Security\Core\Authentication\Token\UsernamePasswordToken;
  */
 class PartieControllerTest extends TestCase
 {
+	/**
+	 * Startzeitpunkt aller Tests in Millisekunden.
+	 */
+	private const T0 = 1790000000000;
+
 	private Connection $db;
 
 	private TokenStorage $tokenStorage;
@@ -42,6 +47,11 @@ class PartieControllerTest extends TestCase
 	private Session $sitzung;
 
 	private int $blitz;
+
+	/**
+	 * Zeitpunkt, den der Controller als „jetzt“ sieht; Tests stellen ihn vor.
+	 */
+	private int $jetzt = self::T0;
 
 	/**
 	 * Legt Datenbank, Bedenkzeit, leere Anmeldung und Sitzung an.
@@ -52,6 +62,7 @@ class PartieControllerTest extends TestCase
 		$this->blitz = Datenbank::bedenkzeit($this->db);
 		$this->tokenStorage = new TokenStorage();
 		$this->sitzung = new Session(new MockArraySessionStorage());
+		$this->jetzt = self::T0;
 	}
 
 	/**
@@ -151,6 +162,70 @@ class PartieControllerTest extends TestCase
 	}
 
 	/**
+	 * partieDaten liefert beide Uhren: Die gerade laufende ist auf den
+	 * Zeitpunkt der Antwort umgerechnet, die stehende zeigt den gespeicherten Wert.
+	 */
+	public function testBeideUhrenInDenPartiedaten(): void
+	{
+		$controller = $this->controller();
+
+		$partie = $this->daten($controller->start($this->post(array('bedenkzeit' => $this->blitz, 'stufe' => 1500, 'farbe' => 'w'))))['partie'];
+		$this->assertSame(180000, $partie['restzeitEngine']);
+		$this->assertFalse($partie['engineUhrLaeuft']);
+
+		$this->jetzt = self::T0 + 1000;
+		$nachSpielerzug = $this->daten($controller->zug($this->post(array('partie' => $partie['id'], 'zugnummer' => 0, 'zug' => 'e2e4', 'denkzeit' => 800))))['partie'];
+		$this->assertTrue($nachSpielerzug['engineUhrLaeuft']);
+		$this->assertSame(180000, $nachSpielerzug['restzeitEngine']);
+
+		// Der Computer rechnet: seine Uhr läuft, die des Spielers steht
+		$this->jetzt = self::T0 + 3500;
+		$rechnet = $this->daten($controller->stand($this->get($partie['id'])))['partie'];
+		$this->assertTrue($rechnet['engineUhrLaeuft']);
+		$this->assertSame(177500, $rechnet['restzeitEngine']);
+		$this->assertFalse($rechnet['uhrLaeuft']);
+		$this->assertSame(180000, $rechnet['restzeit']);
+
+		$this->jetzt = self::T0 + 4000;
+		$nachComputerzug = $this->daten($controller->zug($this->post(array('partie' => $partie['id'], 'zugnummer' => 1, 'zug' => 'e7e5', 'denkzeit' => null))))['partie'];
+		$this->assertFalse($nachComputerzug['engineUhrLaeuft']);
+		$this->assertSame(180000 - 3000 + 2000, $nachComputerzug['restzeitEngine']);
+		$this->assertTrue($nachComputerzug['uhrLaeuft']);
+
+		// Der Spieler denkt: seine Uhr läuft, die des Computers steht
+		$this->jetzt = self::T0 + 6000;
+		$denkt = $this->daten($controller->stand($this->get($partie['id'])))['partie'];
+		$this->assertFalse($denkt['engineUhrLaeuft']);
+		$this->assertSame(179000, $denkt['restzeitEngine']);
+		$this->assertSame(178000, $denkt['restzeit']);
+
+		$ende = $this->daten($controller->aufgeben($this->post(array('partie' => $partie['id']))))['partie'];
+		$this->assertFalse($ende['engineUhrLaeuft']);
+		$this->assertSame(179000, $ende['restzeitEngine']);
+	}
+
+	/**
+	 * Hat der Computer Weiß, läuft seine Uhr ab dem Start; eine Altpartie
+	 * ohne Uhr des Computers meldet -1 und nie eine laufende Computer-Uhr.
+	 */
+	public function testComputerUhrBeiWeissUndAltpartie(): void
+	{
+		$controller = $this->controller();
+
+		$partie = $this->daten($controller->start($this->post(array('bedenkzeit' => $this->blitz, 'stufe' => 1500, 'farbe' => 'b'))))['partie'];
+		$this->assertTrue($partie['engineUhrLaeuft']);
+		$this->assertSame(180000, $partie['restzeitEngine']);
+
+		$this->jetzt = self::T0 + 1500;
+		$this->assertSame(178500, $this->daten($controller->stand($this->get($partie['id'])))['partie']['restzeitEngine']);
+
+		$this->db->executeStatement('UPDATE tl_schachcomputer_partie SET restzeitEngine=-1 WHERE id=?', array($partie['id']));
+		$alt = $this->daten($controller->stand($this->get($partie['id'])))['partie'];
+		$this->assertFalse($alt['engineUhrLaeuft']);
+		$this->assertSame(-1, $alt['restzeitEngine']);
+	}
+
+	/**
 	 * Übungspartien speichern nur Mitglieder.
 	 */
 	public function testUebungNurFuerMitglieder(): void
@@ -224,7 +299,10 @@ class PartieControllerTest extends TestCase
 	}
 
 	/**
-	 * Baut den Controller mit fester Uhr (T0).
+	 * Baut den Controller mit der Testuhr ($this->jetzt, anfangs T0).
+	 *
+	 * Der Controller liest die Zeit bei jeder Anfrage über eine Closure aus
+	 * dem Test, damit ein Test sie zwischen zwei Anfragen vorstellen kann.
 	 *
 	 * @param ContaoFramework|null $framework Eigener Framework-Mock für Erwartungen,
 	 *                                        sonst ein nachsichtiger Standard-Mock
@@ -236,17 +314,27 @@ class PartieControllerTest extends TestCase
 		$wertungsdienst = new Wertungsdienst($this->db, new Wertungsrechner(new Glicko2()));
 		$statistik = new Statistik($this->db, new NullLogger());
 
-		return new class(new Partiedienst($this->db, $wertungsdienst, $statistik, new NullLogger()), $wertungsdienst, $this->tokenStorage, $statistik, $framework ?? $this->createMock(ContaoFramework::class)) extends PartieController {
+		$controller = new class(new Partiedienst($this->db, $wertungsdienst, $statistik, new NullLogger()), $wertungsdienst, $this->tokenStorage, $statistik, $framework ?? $this->createMock(ContaoFramework::class)) extends PartieController {
 			/**
-			 * Feste Zeit statt der Systemuhr.
+			 * Liefert die Testzeit.
 			 *
-			 * @return int Der Startzeitpunkt der Tests
+			 * @var \Closure(): int
+			 */
+			public \Closure $uhr;
+
+			/**
+			 * Testzeit statt der Systemuhr.
+			 *
+			 * @return int Der Zeitpunkt, den der Test gerade eingestellt hat
 			 */
 			protected function jetztMs(): int
 			{
-				return 1790000000000;
+				return ($this->uhr)();
 			}
 		};
+		$controller->uhr = fn (): int => $this->jetzt;
+
+		return $controller;
 	}
 
 	/**
