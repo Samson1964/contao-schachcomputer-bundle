@@ -92,7 +92,9 @@ body > svg.cm-chessboard-draggable-piece {
 
 .schachcomputer .schachcomputer-uhr--aktiv {
 	border-color: var(--schachcomputer-haupt);
+	/* Die Tönung folgt der Hauptfarbe; ältere Browser ohne color-mix() behalten den festen Wert davor */
 	background: rgba(31, 111, 178, .08);
+	background: color-mix(in srgb, var(--schachcomputer-haupt) 8%, transparent);
 }
 
 .schachcomputer-uhr-name {
