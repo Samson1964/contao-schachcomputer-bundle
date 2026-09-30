@@ -6,8 +6,8 @@ Ranglisten. Läuft unter **Contao 4.13 und Contao 5.7** (PHP 8.1 bis 8.4).
 
 ## Funktionen
 
-- **Gewertete Partien** mit Schachuhr für beide Seiten und Bedenkzeiten, die
-  der Redakteur im Backend anlegt.
+- **Gewertete Partien** mit Schachuhr für beide Seiten, Remisangebot und
+  Bedenkzeiten, die der Redakteur im Backend anlegt.
   Jede Bedenkzeit gehört zu einer Wertungsklasse: Blitz, Schnellschach oder
   Langpartie. Jede Klasse hat eigene Wertungen und Ranglisten.
 - **Spielstärke** von 600 bis 2500 in 100er-Schritten. Vorausgewählt ist die
@@ -93,6 +93,15 @@ Ranglisten. Läuft unter **Contao 4.13 und Contao 5.7** (PHP 8.1 bis 8.4).
 - Remis nach den Regeln (Patt, dreifache Wiederholung, 50 Züge, ungenügendes
   Material) wird selbsttätig erkannt. Läuft die Zeit des Spielers ab und hat
   die Engine kein Mattmaterial mehr, endet die Partie remis.
+- **Remis anbieten:** In gewerteten Partien kann der Spieler Remis anbieten,
+  wenn er am Zug ist – frühestens vor seinem 20. Zug, nach einem abgelehnten
+  Angebot erst wieder fünf eigene Züge später. Stockfish prüft die Stellung
+  in voller Stärke etwa eine Sekunde lang (bei knapper Uhr kürzer, mindestens
+  0,2 Sekunden); die Zeit geht von der Uhr des Spielers ab. Er nimmt an, wenn
+  er nicht besser steht (Bewertung aus seiner Sicht höchstens 0, oder gegen
+  ihn läuft ein Matt). Angenommen endet die Partie remis durch Einigung und
+  wird gewertet; abgelehnt geht sie weiter, die Uhr des Spielers läuft dabei
+  durch. Übungspartien haben stattdessen „Partie beenden“.
 - Wertung nach **Glicko-2**, Start 1500. Eine Wertung mit Abweichung über 110
   gilt als vorläufig (Anzeige mit „?") und steht in keiner Rangliste. Wer
   lange nicht spielt, wird wieder vorläufig – nach etwa drei Monaten.
@@ -108,7 +117,10 @@ manipuliert, könnte ihr schlechte Züge unterschieben; der Server prüft nur,
 ob sie regelgerecht sind. Ebenso kann ein manipulierter Browser den fertigen
 Engine-Zug bis knapp 60 Sekunden zurückhalten, während die Uhr des Spielers
 steht; das kostet die Uhr des Computers und kann ihn bei knapper Uhr sogar
-auf Zeit verlieren lassen. Für eine Vereinsseite ist das vertretbar.
+auf Zeit verlieren lassen. Auch über ein Remisangebot entscheidet Stockfish
+im Browser: Ein manipulierter Browser kann ein Angebot annehmen lassen; der
+Server prüft nur Uhr, Zugzahl und Abstand zum letzten Angebot. Für eine
+Vereinsseite ist das vertretbar.
 
 ## Statistik im Backend
 
