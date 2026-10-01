@@ -37,6 +37,7 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer'] = array
 	'pgnEvent'          => 'Partie gegen Stockfish',
 	'amZug'             => 'Du bist am Zug.',
 	'ersterZug'         => 'Mach deinen ersten Zug innerhalb von %s Sekunden, sonst wird die Partie abgebrochen.',
+	'ersterZugEine'     => 'Mach deinen ersten Zug innerhalb von %s Sekunde, sonst wird die Partie abgebrochen.',
 	'engineDenkt'       => 'Der Computer denkt nach …',
 	'engineNichtBereit' => 'Stockfish ließ sich nicht laden, deshalb wurde keine Partie gestartet. Prüfe die Verbindung und versuche es noch einmal.',
 	'engineAusgefallen' => 'Der Computer antwortet nicht. Lade die Seite neu, damit er weiterziehen kann – kommt sein Zug nicht innerhalb einer Minute an, gilt die Partie als verlassen.',

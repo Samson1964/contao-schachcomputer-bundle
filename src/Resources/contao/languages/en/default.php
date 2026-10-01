@@ -37,6 +37,7 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer'] = array
 	'pgnEvent'          => 'Game against Stockfish',
 	'amZug'             => 'Your move.',
 	'ersterZug'         => 'Make your first move within %s seconds, otherwise the game is aborted.',
+	'ersterZugEine'     => 'Make your first move within %s second, otherwise the game is aborted.',
 	'engineDenkt'       => 'The computer is thinking …',
 	'engineNichtBereit' => 'Stockfish could not be loaded, so no game was started. Check your connection and try again.',
 	'engineAusgefallen' => 'The computer is not responding. Reload the page so it can continue – if its move does not arrive within one minute, the game counts as abandoned.',

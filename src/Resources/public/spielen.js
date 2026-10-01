@@ -718,8 +718,14 @@ class Schachcomputer {
         const anzeigen = () => {
             const sekunden = fristSekunden(ende, performance.now())
             if (sekunden !== angezeigt) {
+                const text = (sekunden === 1 ? this.texte.ersterZugEine : this.texte.ersterZug).replace("%s", sekunden)
+                // Screenreader lesen den Hinweis einmal vor, nicht jede Sekunde neu
+                if (angezeigt === null) {
+                    this.status(text)
+                } else {
+                    this.statusStill(text)
+                }
                 angezeigt = sekunden
-                this.status(this.texte.ersterZug.replace("%s", sekunden))
             }
             if (sekunden === 0) {
                 clearInterval(this.fristTakt)
@@ -1325,8 +1331,23 @@ class Schachcomputer {
      * @param {string} [art] „erfolg" oder „fehler" für die Farbe
      */
     status(text, art = "") {
+        this.feld.status.setAttribute("aria-live", "polite")
         this.feld.status.textContent = text
         this.feld.status.dataset.art = art
+    }
+
+    /**
+     * Ändert den Statustext, ohne dass Screenreader ihn erneut vorlesen.
+     *
+     * Für den Countdown der Frist: Der Hinweis wird einmal über status()
+     * angesagt, die folgenden Sekunden nur noch angezeigt. Der nächste Aufruf
+     * von status() schaltet die Ansage wieder ein.
+     *
+     * @param {string} text Der neue Text
+     */
+    statusStill(text) {
+        this.feld.status.setAttribute("aria-live", "off")
+        this.feld.status.textContent = text
     }
 
     /**
