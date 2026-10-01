@@ -11,7 +11,9 @@ Ranglisten. Läuft unter **Contao 4.13 und Contao 5.7** (PHP 8.1 bis 8.4).
   Jede Bedenkzeit gehört zu einer Wertungsklasse: Blitz, Schnellschach oder
   Langpartie. Jede Klasse hat eigene Wertungen und Ranglisten.
 - **Spielstärke** von 600 bis 2500 in 100er-Schritten. Vorausgewählt ist die
-  Stufe, die der eigenen Wertung am nächsten liegt.
+  Stufe, die der eigenen Wertung am nächsten liegt. Bedenkzeit und Farbe der
+  letzten Wahl bleiben für den Besuch erhalten (im `sessionStorage` des
+  Browsers, nichts davon geht an den Server).
 - **Übungspartien** ohne Uhr, mit Zurücknehmen und „PGN kopieren". Für
   Mitglieder werden sie gespeichert.
 - **Ranglisten**: aktuelle Rangliste, ewige Bestenliste (Höchstwerte) und
@@ -145,7 +147,8 @@ Schachcomputer genutzt wird:
   Partien, gespeicherte Übungspartien; dazu die Punktquote der Spieler mit
   Siegen, Remis und Niederlagen.
 - Zwei Balkendiagramme: begonnen vor aufgerufen, gewonnen vor beendet.
-- Die 20 meistgespielten Bedenkzeiten und die 20 aktivsten Mitglieder.
+- Die 20 meistgespielten Bedenkzeiten und die 20 aktivsten Mitglieder; der
+  Name führt zum Mitglied im Backend.
 
 Gezählt wird stündlich in `tl_schachcomputer_statistik` (eine Zeile je Stunde,
 Art und Mitglied/Gast), ab der Installation. Übungspartien von Gästen laufen nur
@@ -177,7 +180,8 @@ Content-Security-Policy setzt, muss in `connect-src` auch `blob:` erlauben.
 
 Gespeichert werden je Partie die Züge, die Denkzeiten und das Ergebnis, bei
 Mitgliedern dazu Wertung und Wertungsverlauf. Öffentliche Ranglisten zeigen
-Namen nur als „Vorname N.". Beim Löschen eines Mitglieds (Backend oder
+Namen nur als „Vorname N." (hat ein Mitglied keinen Namen eingetragen, den
+Benutzernamen). Beim Löschen eines Mitglieds (Backend oder
 „Konto schließen") werden alle seine Daten gelöscht. Gastpartien werden einen
 Tag nach ihrem Ende gelöscht.
 

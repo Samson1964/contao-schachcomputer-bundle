@@ -1,5 +1,12 @@
 # Änderungen
 
+## Version 1.3.0 (2026-10-01)
+
+* Add: Bedenkzeit und Farbe des Startformulars bleiben für den Besuch erhalten. Nach einer Partie oder dem Neuladen der Seite stehen die zuletzt gewählten Werte wieder da (im `sessionStorage` des Browsers; es wird nichts an den Server gesendet). Eine Bedenkzeit, die es nicht mehr gibt, wird ignoriert.
+* Fix: In der Backend-Liste *Schachcomputer → Partien* stand unter Contao 4.13 beim Beginn ein Unix-Zeitstempel statt Datum und Uhrzeit. Die Spalte wird jetzt in beiden Contao-Fassungen gleich im Datums- und Zeitformat der Einstellungen angezeigt.
+* Fix: Mitglieder ohne eingetragenen Vor- und Nachnamen erschienen in den Ranglisten und in der Backend-Statistik nur mit „–“. Jetzt steht ihr Benutzername da.
+* Change: In der Backend-Statistik ist der Name unter „Aktivste Mitglieder“ mit dem Mitglied im Backend verlinkt.
+
 ## Version 1.2.0 (2026-10-01)
 
 * Add: Countdown für den ersten Zug. Die 60 Sekunden, die der Spieler für seinen ersten Zug hat, zählen im Statustext sichtbar herunter (auch wenn Stockfish Weiß hat und die Frist erst nach seinem Zug beginnt). Nach Fristende holt die Seite wie bisher den Stand vom Server.
