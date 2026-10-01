@@ -28,7 +28,7 @@ class SpielenModule extends SchachcomputerModul
 	/**
 	 * Eigene Skripte; ihr Änderungsdatum ergibt die Versionsangabe.
 	 */
-	private const SKRIPTE = array('spielen.js', 'engine.js', 'uhr.js');
+	private const SKRIPTE = array('spielen.js', 'engine.js', 'uhr.js', 'vorwahl.js');
 
 	/**
 	 * @var string

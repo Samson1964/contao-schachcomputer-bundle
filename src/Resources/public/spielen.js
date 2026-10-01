@@ -28,6 +28,7 @@ import {Chess} from "./vendor/chess.js/chess.js"
 const VERSION = new URL(import.meta.url).search
 const {Engine, rechenzeit, zeitBudget, zufallsZug, mitZeitlimit, nimmtRemisAn, VOLLE_STAERKE} = await import("./engine.js" + VERSION)
 const {Uhr, fristSekunden, warngrenze} = await import("./uhr.js" + VERSION)
+const {speicherHolen, vorwahlLesen, vorwahlSchreiben} = await import("./vorwahl.js" + VERSION)
 
 /** Markierung des letzten Zuges. */
 const MARKER_ZUG = MARKER_TYPE.square
@@ -164,6 +165,8 @@ class Schachcomputer {
         })
         this.feld.uebung.addEventListener("click", () => this.uebungStarten())
         this.feld.bedenkzeit.addEventListener("change", () => this.stufeVorschlagen())
+        // Bedenkzeit und Farbe merken; „change" steigt vom Auswahlfeld und von den Farbknöpfen zum Formular auf
+        this.feld.start.addEventListener("change", () => this.vorwahlMerken())
         this.feld.knoepfe.abbrechen.addEventListener("click", () => this.abbrechen())
         this.feld.knoepfe.remis.addEventListener("click", () => this.remisAnbieten())
         this.feld.knoepfe.aufgeben.addEventListener("click", () => this.aufgeben())
@@ -435,11 +438,38 @@ class Schachcomputer {
             this.feld.stufe.append(new Option(String(stufe), String(stufe)))
         }
         this.feld.stufe.value = "1500"
+        this.vorwahlAnwenden()
 
         const keine = this.konfiguration.bedenkzeiten.length === 0
         this.feld.bedenkzeit.disabled = keine
         this.feld.gewertet.disabled = keine
         this.feld.keineBedenkzeit.hidden = !keine
+    }
+
+    /**
+     * Stellt Bedenkzeit und Farbe der letzten Wahl dieses Besuchs wieder ein.
+     *
+     * Eine gemerkte Bedenkzeit, die es nicht mehr gibt (im Backend
+     * unveröffentlicht), bleibt unbeachtet; dann gilt die erste der Liste.
+     */
+    vorwahlAnwenden() {
+        const vorwahl = vorwahlLesen(speicherHolen())
+        if (vorwahl.bedenkzeit !== null && Array.from(this.feld.bedenkzeit.options).some(option => option.value === vorwahl.bedenkzeit)) {
+            this.feld.bedenkzeit.value = vorwahl.bedenkzeit
+        }
+        if (vorwahl.farbe !== null) {
+            const knopf = this.feld.start.querySelector(`input[name="farbe"][value="${vorwahl.farbe}"]`)
+            if (knopf) {
+                knopf.checked = true
+            }
+        }
+    }
+
+    /**
+     * Merkt sich die aktuelle Bedenkzeit und Farbe für den Rest des Besuchs.
+     */
+    vorwahlMerken() {
+        vorwahlSchreiben(speicherHolen(), this.feld.bedenkzeit.value, this.gewaehlteFarbe())
     }
 
     /**
