@@ -3,7 +3,20 @@
 <?php $this->block('content'); ?>
 
   <div class="schachcomputer" data-konfiguration="<?= Contao\StringUtil::specialchars(json_encode($this->konfiguration, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>">
-    <div class="schachcomputer-brett" aria-label="<?= $this->texte['brett'] ?>"></div>
+    <div class="schachcomputer-bretteil">
+      <div class="schachcomputer-brett" aria-label="<?= $this->texte['brett'] ?>"></div>
+
+      <div class="schachcomputer-uhren" data-uhren hidden>
+        <p class="schachcomputer-uhr schachcomputer-uhr--engine" data-uhr-rahmen="engine">
+          <span class="schachcomputer-uhr-name"><?= $this->texte['uhrNameEngine'] ?></span>
+          <span class="schachcomputer-uhr-zeit" data-uhr-engine role="timer" aria-label="<?= $this->texte['uhrEngine'] ?>"></span>
+        </p>
+        <p class="schachcomputer-uhr schachcomputer-uhr--spieler" data-uhr-rahmen="spieler">
+          <span class="schachcomputer-uhr-name"><?= $this->texte['uhrNameSpieler'] ?></span>
+          <span class="schachcomputer-uhr-zeit" data-uhr role="timer" aria-label="<?= $this->texte['uhr'] ?>"></span>
+        </p>
+      </div>
+    </div>
 
     <div class="schachcomputer-seite">
       <p class="schachcomputer-wertungen" data-wertungen></p>
@@ -32,16 +45,6 @@
 
       <div class="schachcomputer-partie" data-partie hidden>
         <p class="schachcomputer-gegner" data-gegner></p>
-        <div class="schachcomputer-uhren" data-uhren>
-          <p class="schachcomputer-uhr" data-uhr-rahmen="engine">
-            <span class="schachcomputer-uhr-name"><?= $this->texte['uhrNameEngine'] ?></span>
-            <span class="schachcomputer-uhr-zeit" data-uhr-engine role="timer" aria-label="<?= $this->texte['uhrEngine'] ?>"></span>
-          </p>
-          <p class="schachcomputer-uhr" data-uhr-rahmen="spieler">
-            <span class="schachcomputer-uhr-name"><?= $this->texte['uhrNameSpieler'] ?></span>
-            <span class="schachcomputer-uhr-zeit" data-uhr role="timer" aria-label="<?= $this->texte['uhr'] ?>"></span>
-          </p>
-        </div>
         <div class="schachcomputer-knoepfe">
           <button type="button" class="schachcomputer-knopf" data-aktion="abbrechen" hidden><?= $this->texte['abbrechen'] ?></button>
           <button type="button" class="schachcomputer-knopf" data-aktion="remis" hidden><?= $this->texte['remisAnbieten'] ?></button>

@@ -472,6 +472,9 @@ class Schachcomputer {
 
     /**
      * Zeigt das Startformular und die Grundstellung.
+     *
+     * Die Uhren stehen neben dem Brett, nicht im Partiebereich; sie müssen
+     * deshalb eigens ausgeblendet werden.
      */
     startZeigen() {
         this.generation++
@@ -484,6 +487,7 @@ class Schachcomputer {
         this.modus = null
         this.partie = null
         this.feld.partie.hidden = true
+        this.feld.uhren.hidden = true
         this.feld.start.hidden = false
         this.stufeVorschlagen()
         this.status("")

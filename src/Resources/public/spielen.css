@@ -1,7 +1,8 @@
 /*
- * Schachcomputer: Brett links, Bedienung rechts; auf schmalen Bildschirmen
- * untereinander. Farben über Eigenschaften, damit ein Theme sie überschreiben
- * kann, ohne diese Datei anzufassen. Aufbau wie im Schachaufgaben-Bundle.
+ * Schachcomputer: Brett links (mit den Uhren daneben), Bedienung rechts; auf
+ * schmalen Bildschirmen untereinander, die Uhren über und unter dem Brett.
+ * Farben über Eigenschaften, damit ein Theme sie überschreiben kann, ohne
+ * diese Datei anzufassen. Aufbau wie im Schachaufgaben-Bundle.
  */
 .schachcomputer {
 	--schachcomputer-erfolg: #2e7d32;
@@ -11,13 +12,32 @@
 	--schachcomputer-rand: #c8c8c8;
 
 	display: grid;
-	grid-template-columns: minmax(0, 36rem) minmax(14rem, 1fr);
+	/*
+	 * Erste Spalte: Brett (höchstens 36rem), 1rem Abstand und die Uhren (9rem).
+	 * So behält das Brett seine Größe, wenn die Uhren neben ihm stehen; wo der
+	 * Platz fehlt, schrumpft die Spalte und mit ihr das Brett.
+	 */
+	grid-template-columns: minmax(0, 46rem) minmax(14rem, 1fr);
 	gap: 1.5rem;
 	align-items: start;
 }
 
+/*
+ * Brett und Uhren bilden einen Block: Die Uhren stehen rechts neben dem Brett,
+ * senkrecht auf Höhe der Brettmitte. Auf schmalen Bildschirmen siehe unten.
+ */
+.schachcomputer-bretteil {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	min-width: 0;
+}
+
 .schachcomputer-brett {
+	flex: 1 1 auto;
+	min-width: 0;
 	width: 100%;
+	max-width: 36rem;
 	aspect-ratio: 1;
 }
 
@@ -71,19 +91,19 @@ body > svg.cm-chessboard-draggable-piece {
 }
 
 /*
- * Zwei Uhren nebeneinander: Stockfish, dann der Spieler. Die laufende Uhr
- * bekommt einen Rahmen in der Hauptfarbe; auf schmalen Bildschirmen teilen
- * sich beide die Breite.
+ * Zwei Uhren übereinander: Stockfish oben, der Spieler unten. Die Spalte hat
+ * eine feste Breite, damit das Brett nicht springt, wenn sich die Ziffern
+ * ändern. Die laufende Uhr bekommt einen Rahmen in der Hauptfarbe.
  */
 .schachcomputer-uhren {
 	display: flex;
-	flex-wrap: wrap;
-	gap: .5rem;
+	flex: 0 0 9rem;
+	flex-direction: column;
+	gap: 1rem;
 }
 
 .schachcomputer .schachcomputer-uhr {
-	flex: 1 1 7rem;
-	max-width: 12rem;
+	flex: none;
 	margin: 0;
 	padding: .25rem .75rem;
 	border: 2px solid var(--schachcomputer-rand);
@@ -180,8 +200,49 @@ body > svg.cm-chessboard-draggable-piece {
 	display: none !important;
 }
 
+/*
+ * Schmaler Bildschirm: Brett und Bedienung stehen untereinander. Die Uhr von
+ * Stockfish steht über dem Brett, die des Spielers darunter, jeweils über die
+ * Brettbreite und kompakt mit Name und Zeit in einer Zeile. Der Uhrenblock löst
+ * sich dafür auf (display: contents), seine Uhren ordnen sich im Brettblock
+ * ein; ausgeblendet bleibt er über [hidden] (siehe oben).
+ */
 @media (max-width: 48rem) {
 	.schachcomputer {
 		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.schachcomputer-bretteil {
+		flex-direction: column;
+		align-items: stretch;
+		gap: .5rem;
+	}
+
+	.schachcomputer-brett {
+		flex: none;
+		max-width: none;
+	}
+
+	.schachcomputer-uhren {
+		display: contents;
+	}
+
+	.schachcomputer .schachcomputer-uhr {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: .75rem;
+	}
+
+	.schachcomputer .schachcomputer-uhr--engine {
+		order: -1;
+	}
+
+	.schachcomputer .schachcomputer-uhr--spieler {
+		order: 1;
+	}
+
+	.schachcomputer-uhr-zeit {
+		font-size: 1.5em;
 	}
 }
