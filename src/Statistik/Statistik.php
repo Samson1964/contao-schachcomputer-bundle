@@ -235,24 +235,26 @@ class Statistik
 	 * Die im Zeitraum aktivsten Mitglieder nach gewerteten Partien.
 	 *
 	 * wertung ist die beste aktuelle Wertung über alle Klassen, null ohne
-	 * Spielerzeile.
+	 * Spielerzeile. memberId dient dem Backend, um den Namen mit dem Mitglied zu
+	 * verlinken; hat das Mitglied keinen Vor- und Nachnamen, steht der
+	 * Benutzername als Name da.
 	 *
 	 * @param int $beginn Unix-Zeitstempel, einschließlich (Ende der Partie)
 	 * @param int $ende   Unix-Zeitstempel, ausschließlich
 	 * @param int $anzahl Höchstzahl der Zeilen
 	 *
-	 * @return array<int, array{name: string, partien: int, punkte: float, wertung: int|null}>
+	 * @return array<int, array{memberId: int, name: string, partien: int, punkte: float, wertung: int|null}>
 	 */
 	public function aktivsteMitglieder(int $beginn, int $ende, int $anzahl): array
 	{
 		$zeilen = $this->connection->fetchAllAssociative(
 			sprintf(
-				"SELECT p.memberId, m.firstname, m.lastname, COUNT(*) AS partien, SUM(%s) AS punkte,
+				"SELECT p.memberId, m.firstname, m.lastname, m.username, COUNT(*) AS partien, SUM(%s) AS punkte,
 				 (SELECT MAX(s.wertung) FROM tl_schachcomputer_spieler s WHERE s.memberId = p.memberId) AS wertung
 				 FROM tl_schachcomputer_partie p
 				 INNER JOIN tl_member m ON m.id = p.memberId
 				 WHERE p.gewertet = 1 AND p.status = 'beendet' AND p.ende >= ? AND p.ende < ?
-				 GROUP BY p.memberId, m.firstname, m.lastname
+				 GROUP BY p.memberId, m.firstname, m.lastname, m.username
 				 ORDER BY partien DESC, p.memberId
 				 LIMIT %d",
 				self::PUNKTE_SQL,
@@ -262,10 +264,11 @@ class Statistik
 		);
 
 		return array_map(static fn (array $zeile): array => array(
-			'name'    => Anzeigename::kurz($zeile['firstname'], $zeile['lastname']),
-			'partien' => (int) $zeile['partien'],
-			'punkte'  => (float) $zeile['punkte'],
-			'wertung' => null === $zeile['wertung'] ? null : (int) round((float) $zeile['wertung']),
+			'memberId' => (int) $zeile['memberId'],
+			'name'     => Anzeigename::kurz($zeile['firstname'], $zeile['lastname'], $zeile['username']),
+			'partien'  => (int) $zeile['partien'],
+			'punkte'   => (float) $zeile['punkte'],
+			'wertung'  => null === $zeile['wertung'] ? null : (int) round((float) $zeile['wertung']),
 		), $zeilen);
 	}
 

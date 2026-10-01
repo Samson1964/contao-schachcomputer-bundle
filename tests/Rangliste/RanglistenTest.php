@@ -75,6 +75,19 @@ class RanglistenTest extends TestCase
 	}
 
 	/**
+	 * Ein Mitglied ohne Vor- und Nachnamen steht mit seinem Benutzernamen in der
+	 * Liste statt mit einem Strich.
+	 */
+	public function testMitgliedOhneNamenZeigtBenutzernamen(): void
+	{
+		$jetzt = self::STICHTAG;
+		$this->db->insert('tl_member', array('firstname' => '', 'lastname' => '', 'username' => 'schachfreund', 'disable' => ''));
+		$this->spieler((int) $this->db->lastInsertId(), 1700, 60, 30, $jetzt - self::TAG);
+
+		$this->assertSame(array('schachfreund'), array_column($this->ranglisten()->aktuell('blitz', $jetzt), 'name'));
+	}
+
+	/**
 	 * Abgelaufene Mitgliedschaften fehlen in aktueller und ewiger Liste;
 	 * gesperrt ist nur ein Mitglied mit disable '1'.
 	 */

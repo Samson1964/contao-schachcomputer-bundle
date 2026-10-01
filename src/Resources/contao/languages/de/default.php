@@ -168,6 +168,7 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer_statistik'] = array
 	'stufe'             => 'Ø Stufe',
 	'punkte'            => 'Punkte',
 	'name'              => 'Name',
+	'mitgliedBearbeiten' => 'Mitglied bearbeiten',
 	'besteWertung'      => 'Beste Wertung',
 	'hinweis'           => 'Gezählt wird ab der Einführung der Statistik: Aufrufe beim Laden der Seite mit dem Modul „Spielen“, dazu Beginn und Ende jeder gewerteten Partie sowie gespeicherte Übungspartien. Übungspartien von Gästen laufen nur im Browser und werden nicht erfasst. Die Tabellen beruhen auf den Partien der Mitglieder; Gastpartien werden nach einem Tag gelöscht.',
 );

@@ -119,7 +119,7 @@ $s = $this->summen;
 								<td class="rechts"><?= $i + 1 ?></td>
 								<td class="rechts"><strong><?= $zahl($z['partien']) ?></strong></td>
 								<td class="rechts"><?= $punkte($z['punkte']) ?></td>
-								<td><?= Contao\StringUtil::specialchars($z['name']) ?></td>
+								<td><a href="<?= $z['url'] ?>" title="<?= $t['mitgliedBearbeiten'] ?>"><?= Contao\StringUtil::specialchars($z['name']) ?></a></td>
 								<td class="rechts"><?= null === $z['wertung'] ? '–' : $z['wertung'] ?></td>
 							</tr>
 						<?php endforeach; ?>

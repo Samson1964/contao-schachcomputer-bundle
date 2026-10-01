@@ -63,4 +63,17 @@ class PlatzierungTest extends TestCase
 		$this->assertSame('Max', Anzeigename::kurz('Max', ''));
 		$this->assertSame('–', Anzeigename::kurz('', null));
 	}
+
+	/**
+	 * Ohne Vor- und Nachnamen erscheint der Benutzername; ein vorhandener Name
+	 * hat Vorrang, und ohne beides bleibt der Strich.
+	 */
+	public function testAnzeigenameMitBenutzernamenAlsErsatz(): void
+	{
+		$this->assertSame('schachfreund', Anzeigename::kurz('', '', 'schachfreund'));
+		$this->assertSame('schachfreund', Anzeigename::kurz(null, ' ', ' schachfreund '));
+		$this->assertSame('Max M.', Anzeigename::kurz('Max', 'Mustermann', 'schachfreund'));
+		$this->assertSame('–', Anzeigename::kurz('', '', ''));
+		$this->assertSame('–', Anzeigename::kurz('', '', null));
+	}
 }

@@ -168,6 +168,7 @@ $GLOBALS['TL_LANG']['MSC']['schachcomputer_statistik'] = array
 	'stufe'             => 'Ø level',
 	'punkte'            => 'Points',
 	'name'              => 'Name',
+	'mitgliedBearbeiten' => 'Edit member',
 	'besteWertung'      => 'Best rating',
 	'hinweis'           => 'Counting starts with the introduction of the statistics: visits when the page with the "play" module is loaded, plus the start and end of every rated game and saved practice games. Practice games of guests run only in the browser and are not counted. The tables are based on the games of members; guest games are deleted after one day.',
 );

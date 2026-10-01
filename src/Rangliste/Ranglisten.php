@@ -177,7 +177,7 @@ class Ranglisten
 		return array(
 			'memberId' => (int) $zeile['memberId'],
 			'username' => (string) $zeile['username'],
-			'name'     => Anzeigename::kurz($zeile['firstname'], $zeile['lastname']),
+			'name'     => Anzeigename::kurz($zeile['firstname'], $zeile['lastname'], $zeile['username']),
 			'wertung'  => $wertung,
 		);
 	}

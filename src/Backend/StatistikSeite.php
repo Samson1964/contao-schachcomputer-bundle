@@ -11,6 +11,7 @@ declare(strict_types=1);
 
 namespace Schachbulle\ContaoSchachcomputerBundle\Backend;
 
+use Contao\Backend;
 use Contao\BackendTemplate;
 use Contao\System;
 use Schachbulle\ContaoSchachcomputerBundle\Statistik\Statistik;
@@ -107,7 +108,10 @@ class StatistikSeite
 		$template->diagrammGestartet = Diagramm::balken($balkenGestartet, (string) ($texte['diagrammGestartet'] ?? ''), 240, 'monat' === $ebene);
 		$template->diagrammGewonnen = Diagramm::balken($balkenGewonnen, (string) ($texte['diagrammGewonnen'] ?? ''), 240, 'monat' === $ebene);
 		$template->bedenkzeiten = $this->statistik->bedenkzeiten($beginn, $ende, self::TOP);
-		$template->aktivste = $this->statistik->aktivsteMitglieder($beginn, $ende, self::TOP);
+		$template->aktivste = array_map(
+			fn (array $zeile): array => $zeile + array('url' => $this->mitgliedUrl($zeile['memberId'])),
+			$this->statistik->aktivsteMitglieder($beginn, $ende, self::TOP)
+		);
 		$template->klassen = $GLOBALS['TL_LANG']['MSC']['schachcomputer']['klassen'] ?? array();
 		$template->ebenenLinks = array_map(
 			fn (string $e): array => array('url' => $this->url($request, $e, $zeitpunkt), 'text' => $texte['ebene_'.$e] ?? $e, 'aktiv' => $e === $ebene),
@@ -120,6 +124,23 @@ class StatistikSeite
 		$template->urlModul = (null === $request ? '' : $request->getBaseUrl().$request->getPathInfo()).'?do=schachcomputer_partien';
 
 		return $template->parse();
+	}
+
+	/**
+	 * Adresse, unter der das Mitglied im Backend bearbeitet wird.
+	 *
+	 * Backend::addToUrl() hängt Anfrage-Token und Referer an, wie es Contao bei
+	 * seinen eigenen Listen tut. Die Angaben der Statistik (key, ebene, datum)
+	 * fallen weg, damit die Adresse nur ins Modul „Mitglieder" führt; über den
+	 * Referer kommt der „Zurück"-Knopf des Mitglieds wieder zur Statistik.
+	 *
+	 * @param int $memberId ID des Mitglieds aus tl_member
+	 *
+	 * @return string Maskierte Adresse für das Template
+	 */
+	private function mitgliedUrl(int $memberId): string
+	{
+		return Backend::addToUrl('do=member&act=edit&id='.$memberId, true, array('key', 'ebene', 'datum'));
 	}
 
 	/**

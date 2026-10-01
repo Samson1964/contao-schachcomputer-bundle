@@ -20,18 +20,27 @@ final class Anzeigename
 	 * Bildet „Vorname N." aus Vor- und Nachname.
 	 *
 	 * Ranglisten veröffentlichen damit keine vollen Namen. Fehlt der Nachname,
-	 * bleibt nur der Vorname stehen.
+	 * bleibt nur der Vorname stehen. Hat ein Mitglied weder Vor- noch
+	 * Nachnamen (die Felder sind in Contao nicht zwingend), tritt der
+	 * Benutzername an die Stelle; er ist ohnehin der Anmeldename und steht
+	 * für das Mitglied in den Ranglisten.
 	 *
-	 * @param string|null $vorname  Vorname aus tl_member
-	 * @param string|null $nachname Nachname aus tl_member
+	 * @param string|null $vorname      Vorname aus tl_member
+	 * @param string|null $nachname     Nachname aus tl_member
+	 * @param string|null $benutzername Benutzername aus tl_member, Ersatz bei leerem Namen
 	 *
-	 * @return string Der gekürzte Name, oder „–" wenn beides leer ist
+	 * @return string Der gekürzte Name, sonst der Benutzername, und nur wenn auch
+	 *                der fehlt „–"
 	 */
-	public static function kurz(?string $vorname, ?string $nachname): string
+	public static function kurz(?string $vorname, ?string $nachname, ?string $benutzername = null): string
 	{
 		$vorname = trim((string) $vorname);
 		$nachname = trim((string) $nachname);
 		$name = trim($vorname.('' !== $nachname ? ' '.mb_substr($nachname, 0, 1).'.' : ''));
+
+		if ('' === $name) {
+			$name = trim((string) $benutzername);
+		}
 
 		return '' !== $name ? $name : '–';
 	}

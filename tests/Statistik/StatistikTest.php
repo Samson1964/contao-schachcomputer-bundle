@@ -173,8 +173,24 @@ class StatistikTest extends TestCase
 
 		$liste = $this->statistik->aktivsteMitglieder(self::ZEIT - 3600, self::ZEIT + 3600, 20);
 
-		$this->assertSame(array('name' => 'Anna A.', 'partien' => 2, 'punkte' => 1.5, 'wertung' => 1702), $liste[0]);
-		$this->assertSame(array('name' => 'Bernd B.', 'partien' => 1, 'punkte' => 0.0, 'wertung' => null), $liste[1]);
+		$this->assertSame(array('memberId' => $anna, 'name' => 'Anna A.', 'partien' => 2, 'punkte' => 1.5, 'wertung' => 1702), $liste[0]);
+		$this->assertSame(array('memberId' => $bernd, 'name' => 'Bernd B.', 'partien' => 1, 'punkte' => 0.0, 'wertung' => null), $liste[1]);
+	}
+
+	/**
+	 * Ein Mitglied ohne Vor- und Nachnamen erscheint mit seinem Benutzernamen,
+	 * und seine ID bleibt für den Link ins Backend erhalten.
+	 */
+	public function testAktivsteMitgliederOhneNamenMitBenutzername(): void
+	{
+		$this->db->insert('tl_member', array('firstname' => '', 'lastname' => '', 'username' => 'schachfreund', 'disable' => ''));
+		$id = (int) $this->db->lastInsertId();
+		$this->partie($id, 'w', Partie::SIEG_WEISS, 1500, 3, 2);
+
+		$liste = $this->statistik->aktivsteMitglieder(self::ZEIT - 3600, self::ZEIT + 3600, 20);
+
+		$this->assertSame('schachfreund', $liste[0]['name']);
+		$this->assertSame($id, $liste[0]['memberId']);
 	}
 
 	/**
