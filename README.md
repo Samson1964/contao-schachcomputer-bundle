@@ -55,10 +55,19 @@ Ranglisten. Läuft unter **Contao 4.13 und Contao 5.7** (PHP 8.1 bis 8.4).
 
 - Der Server führt jede gewertete Partie: Jeder Zug wird auf dem Server
   geprüft, die Uhren laufen auf dem Server.
-- **Zwei Uhren:** Spieler und Computer bekommen dieselbe Bedenkzeit. Beide
-  Uhren stehen nebeneinander, die gerade laufende ist hervorgehoben.
+- **Zwei Uhren:** Spieler und Computer bekommen dieselbe Bedenkzeit. Die
+  Uhren stehen übereinander neben dem Brett, auf Höhe der Brettmitte: die
+  von Stockfish oben, die eigene unten. Auf schmalen Bildschirmen steht die
+  Uhr von Stockfish über dem Brett und die eigene darunter. Die gerade
+  laufende Uhr ist hervorgehoben.
+- **Rote Ziffern:** Zeigt eine Uhr nur noch 0:59 oder weniger, werden ihre
+  Ziffern rot. Bei Bedenkzeiten mit höchstens einer Minute Grundzeit (etwa
+  1+0 oder 1+2) wäre sie sonst von Anfang an rot; dort färbt sie sich erst
+  ab 0:20. Die Farbe ist `--schachcomputer-fehler`.
 - Die Uhr des Spielers läuft ab seinem zweiten Zug; für den ersten Zug gibt
   es 60 Sekunden, sonst wird die Partie ungewertet abgebrochen. Die
+  verbleibenden Sekunden zählen im Statustext sichtbar herunter, auch wenn
+  Stockfish Weiß hat (die 60 Sekunden beginnen dann nach seinem Zug). Die
   Zeitgutschrift gibt es ab dem zweiten Zug. Bis zu einer Sekunde
   Übertragungszeit je Zug wird ausgeglichen.
 - Die Uhr des Computers läuft ab seinem ersten Zug, die Gutschrift gibt es

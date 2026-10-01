@@ -1,5 +1,11 @@
 # Änderungen
 
+## Version 1.2.0 (2026-10-01)
+
+* Add: Countdown für den ersten Zug. Die 60 Sekunden, die der Spieler für seinen ersten Zug hat, zählen im Statustext sichtbar herunter (auch wenn Stockfish Weiß hat und die Frist erst nach seinem Zug beginnt). Nach Fristende holt die Seite wie bisher den Stand vom Server.
+* Add: Rote Ziffern bei knapper Zeit. Zeigt eine Uhr 0:59 oder weniger, färben sich ihre Ziffern rot (Farbe `--schachcomputer-fehler`); bei Bedenkzeiten mit höchstens einer Minute Grundzeit erst ab 0:20. Eine Uhr ohne Wert (Partie aus der Zeit vor 1.1.0) bleibt ungefärbt.
+* Change: Die beiden Uhren stehen jetzt übereinander neben dem Brett auf Höhe der Brettmitte (Stockfish oben, der Spieler unten) statt nebeneinander über den Knöpfen. Auf schmalen Bildschirmen steht die Uhr von Stockfish über dem Brett und die des Spielers darunter. Die erste Rasterspalte ist dafür von 36 auf 46 rem verbreitert; das Brett behält seine 36 rem. Wer das Stylesheet des Bundles überschrieben hat, prüft den Aufbau: Der Uhrenblock (`schachcomputer-uhren`) liegt nicht mehr im Partiebereich, sondern mit dem Brett im neuen Block `schachcomputer-bretteil`; die Uhren tragen zusätzlich die Klassen `schachcomputer-uhr--engine` und `schachcomputer-uhr--spieler`. Wer die Vorlage `mod_schachcomputer_spielen` überschrieben hat, übernimmt die neue Anordnung.
+
 ## Version 1.1.0 (2026-09-30)
 
 * Add: Echte Schachuhr auch für den Computer. In gewerteten Partien stehen zwei Uhren nebeneinander („Stockfish“ und „Du“), die gerade laufende ist hervorgehoben. Der Server misst die Zeit des Computers selbst, zieht sie abzüglich bis zu 1 s Ausgleich für die Übertragung ab (wie beim Spieler) und schreibt die Gutschrift ab dem ersten Computerzug gut. Trifft sein Zug nach Ablauf seiner Uhr ein, verliert der Computer auf Zeit (remis, wenn der Spieler kein Mattmaterial mehr hat); bleibt der Zug ganz aus, gilt weiter die Frist von 60 Sekunden. Nach dem Update die Datenbank aktualisieren (neue Spalte `restzeitEngine`); Partien, die vorher begonnen wurden, laufen ohne Uhr des Computers zu Ende.
